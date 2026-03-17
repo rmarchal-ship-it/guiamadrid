@@ -1,0 +1,1123 @@
+================================================================================
+MOMENTUM BREAKOUT v8 — CÓDIGO COMPLETO PARA ANÁLISIS EXTERNO
+================================================================================
+Estrategia sistemática long-only, 225 tickers, 10 posiciones max.
+Validada 240 meses: PF 2.89, +34.6% anual, MaxDD -42.6%.
+
+Archivos incluidos:
+  1. RESUMEN_PARA_CONTINUAR.md (documento de referencia)
+  2. momentum_breakout.py (motor de señales, universo 225 tickers)
+  3. backtest_experimental.py (backtest v8 principal)
+
+Dependencias: yfinance, pandas, numpy, scipy
+
+================================================================================
+===== ARCHIVO 1: RESUMEN_PARA_CONTINUAR.md =====================================
+================================================================================
+
+# MOMENTUM BREAKOUT v8 — Documento Unico de Referencia
+
+## Version final: v8 (acciones + opciones CALL, universo expandido) — 14 Feb 2026
+
+## 1. QUE ES v8
+
+Estrategia de trading sistematico Momentum Breakout con Fat Tails que opera SOLO en largo
+sobre 225 activos (acciones US + Europa + Asia-Pacifico, ETFs sectoriales e internacionales,
+commodities, renta fija). Busca capturar movimientos explosivos aceptando un win rate bajo
+(~32%) a cambio de que cada ganador genere rendimientos desproporcionados.
+
+v8 = v7 base + opciones CALL + universo expandido 225 tickers + 10 posiciones simultaneas.
+
+### Resultados validados a 240 meses (20 anos):
+  Profit Factor:  2.89
+  Return total:   +37,780%
+  Anualizado:     +34.6%
+  Max Drawdown:   -42.6%
+  Win Rate:       32.2%
+  Trades:         1,416 (1,281 stocks + 135 opciones)
+
+### Resultados a 36 meses:
+  Return total:   +346.2%
+  Profit Factor:  3.34
+  Max Drawdown:   -21.4%
+  Trades:         231
+
+## 2. CONFIGURACION COMPLETA v8
+
+CONFIG = {
+    'initial_capital': 10000,
+    'target_risk_per_trade_pct': 2.0,   # 2% riesgo por trade
+    'max_positions': 10,                 # 10 posiciones simultaneas max
+    'ker_threshold': 0.40,               # Kaufman Efficiency Ratio minimo
+    'volume_threshold': 1.3,             # 1.3x volumen medio
+    'rsi_threshold': 50,                 # RSI > 50 para longs
+    'rsi_max': 75,                       # RSI < 75 (evitar sobrecompra)
+    'breakout_period': 20,               # Breakout sobre maximo de 20 barras
+    'longs_only': True,                  # SOLO LONGS
+    'emergency_stop_pct': 0.15,          # -15% desde entrada
+    'trail_trigger_r': 2.0,              # Trailing se activa a +2R
+    'trail_atr_mult': 4.0,              # Chandelier 4xATR
+    'max_hold_bars': 8,                  # A los 8 dias se activa trailing
+    'time_exit_trail_atr_mult': 3.0,     # Trailing apretado 3xATR
+    'use_macro_filter': True,
+    'macro_ticker': 'SPY',
+    'macro_sma_period': 50,
+    'slippage_pct': 0.10,
+    'option_dte': 120,
+    'option_itm_pct': 0.05,
+    'option_close_dte': 45,
+    'option_max_ivr': 40,
+    'option_ivr_window': 252,
+    'option_position_pct': 0.14,
+    'max_option_positions': 2,
+    'option_spread_pct': 3.0,
+    'risk_free_rate': 0.043,
+}
+
+## 3. REGLAS DE OPERACION
+
+### 3.1 Entrada: 4 condiciones simultaneas
+  1. KER > 0.40: Mercado en tendencia
+  2. RSI entre 50 y 75: Momentum alcista sin sobrecompra
+  3. Volumen > 1.3x media: Confirmacion institucional
+  4. Breakout: Close supera maximo de 20 barras
+
+### 3.2 Ranking multi-factor
+  Score = 0.30*KER + 0.20*RSI_norm + 0.20*Vol_norm + 0.15*Breakout_str + 0.15*ATR%
+
+### 3.3 Filtro macro: SPY > SMA50
+  Solo operar cuando SPY > SMA50. En festivos US, usar ultimo valor conocido.
+
+### 3.4 Position sizing
+  Acciones: Inverse volatility. R = 2xATR, units = (equity x 2%) / R. Tope: equity/10.
+  Opciones: 14% del equity por posicion. Contratos = (equity x 0.14) / (premium x 100).
+
+### 3.5 Gestion de la posicion — Acciones (3 mecanismos de salida):
+  1. Emergency stop -15%: Solo catastrofe.
+  2. Trailing Chandelier 4xATR: Se activa cuando trade alcanza +2R.
+  3. Time exit a 8 dias: Trailing 3xATR (nunca fuerza salida).
+     Si perdiendo: trailing = max(chandelier_3xATR, entry*0.95)
+     Si ganando: trailing = max(chandelier_3xATR, breakeven)
+
+### 3.6 Gestion — Opciones CALL:
+  1. Cierre automatico a 45 DTE restantes
+  2. Sin stop loss (riesgo = prima pagada)
+  3. Nunca ir a vencimiento
+
+## 4. UNIVERSO: 225 TICKERS
+  EEUU: Tech(20), Finance(10), Health(10), Consumer(10), Industrial(10),
+        Energy(10), Utilities(10), Real Estate(10), Telecom(7)
+  Europa: Germany(10), France(10), Other Eurozone(16), UK(9), Swiss(6), Nordic(5)
+  Asia: Japan(10), Australia(8), China(5)
+  Commodities(17), US Index/ETFs(8), Sector ETFs(6), Intl ETFs(10), Fixed Income(8)
+  104 tickers elegibles para opciones.
+
+
+================================================================================
+===== ARCHIVO 2: momentum_breakout.py ==========================================
+================================================================================
+
+#!/usr/bin/env python3
+"""
+MOMENTUM BREAKOUT STRATEGY MODULE v1.0
+Motor de señales, universo 225 tickers, indicadores KER/RSI/ATR/Volume.
+"""
+
+import pandas as pd
+import numpy as np
+from typing import Dict, Tuple, Optional, List
+from dataclasses import dataclass
+import warnings
+warnings.filterwarnings('ignore')
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ASSET UNIVERSE (225 instruments)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ASSETS = {
+    # US STOCKS - TECH (20)
+    'AAPL': {'name': 'Apple', 'category': 'US_TECH', 'is_crypto': False},
+    'MSFT': {'name': 'Microsoft', 'category': 'US_TECH', 'is_crypto': False},
+    'GOOGL': {'name': 'Alphabet', 'category': 'US_TECH', 'is_crypto': False},
+    'AMZN': {'name': 'Amazon', 'category': 'US_TECH', 'is_crypto': False},
+    'NVDA': {'name': 'NVIDIA', 'category': 'US_TECH', 'is_crypto': False},
+    'META': {'name': 'Meta', 'category': 'US_TECH', 'is_crypto': False},
+    'TSLA': {'name': 'Tesla', 'category': 'US_TECH', 'is_crypto': False},
+    'AVGO': {'name': 'Broadcom', 'category': 'US_TECH', 'is_crypto': False},
+    'ORCL': {'name': 'Oracle', 'category': 'US_TECH', 'is_crypto': False},
+    'CRM': {'name': 'Salesforce', 'category': 'US_TECH', 'is_crypto': False},
+    'ADBE': {'name': 'Adobe', 'category': 'US_TECH', 'is_crypto': False},
+    'AMD': {'name': 'AMD', 'category': 'US_TECH', 'is_crypto': False},
+    'INTC': {'name': 'Intel', 'category': 'US_TECH', 'is_crypto': False},
+    'CSCO': {'name': 'Cisco', 'category': 'US_TECH', 'is_crypto': False},
+    'QCOM': {'name': 'Qualcomm', 'category': 'US_TECH', 'is_crypto': False},
+    'TXN': {'name': 'Texas Instruments', 'category': 'US_TECH', 'is_crypto': False},
+    'IBM': {'name': 'IBM', 'category': 'US_TECH', 'is_crypto': False},
+    'NOW': {'name': 'ServiceNow', 'category': 'US_TECH', 'is_crypto': False},
+    'INTU': {'name': 'Intuit', 'category': 'US_TECH', 'is_crypto': False},
+    'AMAT': {'name': 'Applied Materials', 'category': 'US_TECH', 'is_crypto': False},
+    # US STOCKS - FINANCE (10)
+    'JPM': {'name': 'JPMorgan', 'category': 'US_FINANCE', 'is_crypto': False},
+    'BAC': {'name': 'Bank of America', 'category': 'US_FINANCE', 'is_crypto': False},
+    'WFC': {'name': 'Wells Fargo', 'category': 'US_FINANCE', 'is_crypto': False},
+    'GS': {'name': 'Goldman Sachs', 'category': 'US_FINANCE', 'is_crypto': False},
+    'MS': {'name': 'Morgan Stanley', 'category': 'US_FINANCE', 'is_crypto': False},
+    'BLK': {'name': 'BlackRock', 'category': 'US_FINANCE', 'is_crypto': False},
+    'SCHW': {'name': 'Schwab', 'category': 'US_FINANCE', 'is_crypto': False},
+    'C': {'name': 'Citigroup', 'category': 'US_FINANCE', 'is_crypto': False},
+    'AXP': {'name': 'American Express', 'category': 'US_FINANCE', 'is_crypto': False},
+    'USB': {'name': 'US Bancorp', 'category': 'US_FINANCE', 'is_crypto': False},
+    # US STOCKS - HEALTHCARE (10)
+    'UNH': {'name': 'UnitedHealth', 'category': 'US_HEALTH', 'is_crypto': False},
+    'JNJ': {'name': 'Johnson & Johnson', 'category': 'US_HEALTH', 'is_crypto': False},
+    'LLY': {'name': 'Eli Lilly', 'category': 'US_HEALTH', 'is_crypto': False},
+    'PFE': {'name': 'Pfizer', 'category': 'US_HEALTH', 'is_crypto': False},
+    'ABBV': {'name': 'AbbVie', 'category': 'US_HEALTH', 'is_crypto': False},
+    'MRK': {'name': 'Merck', 'category': 'US_HEALTH', 'is_crypto': False},
+    'TMO': {'name': 'Thermo Fisher', 'category': 'US_HEALTH', 'is_crypto': False},
+    'ABT': {'name': 'Abbott', 'category': 'US_HEALTH', 'is_crypto': False},
+    'DHR': {'name': 'Danaher', 'category': 'US_HEALTH', 'is_crypto': False},
+    'BMY': {'name': 'Bristol-Myers', 'category': 'US_HEALTH', 'is_crypto': False},
+    # US STOCKS - CONSUMER (10)
+    'WMT': {'name': 'Walmart', 'category': 'US_CONSUMER', 'is_crypto': False},
+    'HD': {'name': 'Home Depot', 'category': 'US_CONSUMER', 'is_crypto': False},
+    'PG': {'name': 'Procter & Gamble', 'category': 'US_CONSUMER', 'is_crypto': False},
+    'KO': {'name': 'Coca-Cola', 'category': 'US_CONSUMER', 'is_crypto': False},
+    'PEP': {'name': 'PepsiCo', 'category': 'US_CONSUMER', 'is_crypto': False},
+    'COST': {'name': 'Costco', 'category': 'US_CONSUMER', 'is_crypto': False},
+    'MCD': {'name': 'McDonalds', 'category': 'US_CONSUMER', 'is_crypto': False},
+    'NKE': {'name': 'Nike', 'category': 'US_CONSUMER', 'is_crypto': False},
+    'SBUX': {'name': 'Starbucks', 'category': 'US_CONSUMER', 'is_crypto': False},
+    'TGT': {'name': 'Target', 'category': 'US_CONSUMER', 'is_crypto': False},
+    # US STOCKS - INDUSTRIAL (10)
+    'CAT': {'name': 'Caterpillar', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    'HON': {'name': 'Honeywell', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    'GE': {'name': 'GE Aerospace', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    'UNP': {'name': 'Union Pacific', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    'DE': {'name': 'Deere & Co', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    'RTX': {'name': 'RTX Corp', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    'LMT': {'name': 'Lockheed Martin', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    'MMM': {'name': '3M', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    'EMR': {'name': 'Emerson Electric', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    'ETN': {'name': 'Eaton Corp', 'category': 'US_INDUSTRIAL', 'is_crypto': False},
+    # US STOCKS - ENERGY (10)
+    'XOM': {'name': 'ExxonMobil', 'category': 'US_ENERGY', 'is_crypto': False},
+    'CVX': {'name': 'Chevron', 'category': 'US_ENERGY', 'is_crypto': False},
+    'COP': {'name': 'ConocoPhillips', 'category': 'US_ENERGY', 'is_crypto': False},
+    'SLB': {'name': 'Schlumberger', 'category': 'US_ENERGY', 'is_crypto': False},
+    'EOG': {'name': 'EOG Resources', 'category': 'US_ENERGY', 'is_crypto': False},
+    'MPC': {'name': 'Marathon Petroleum', 'category': 'US_ENERGY', 'is_crypto': False},
+    'PSX': {'name': 'Phillips 66', 'category': 'US_ENERGY', 'is_crypto': False},
+    'VLO': {'name': 'Valero Energy', 'category': 'US_ENERGY', 'is_crypto': False},
+    'OXY': {'name': 'Occidental Petroleum', 'category': 'US_ENERGY', 'is_crypto': False},
+    'HAL': {'name': 'Halliburton', 'category': 'US_ENERGY', 'is_crypto': False},
+    # US STOCKS - UTILITIES (10)
+    'NEE': {'name': 'NextEra Energy', 'category': 'US_UTILITY', 'is_crypto': False},
+    'SO': {'name': 'Southern Company', 'category': 'US_UTILITY', 'is_crypto': False},
+    'DUK': {'name': 'Duke Energy', 'category': 'US_UTILITY', 'is_crypto': False},
+    'D': {'name': 'Dominion Energy', 'category': 'US_UTILITY', 'is_crypto': False},
+    'AEP': {'name': 'American Electric Power', 'category': 'US_UTILITY', 'is_crypto': False},
+    'SRE': {'name': 'Sempra', 'category': 'US_UTILITY', 'is_crypto': False},
+    'XEL': {'name': 'Xcel Energy', 'category': 'US_UTILITY', 'is_crypto': False},
+    'EXC': {'name': 'Exelon', 'category': 'US_UTILITY', 'is_crypto': False},
+    'WEC': {'name': 'WEC Energy', 'category': 'US_UTILITY', 'is_crypto': False},
+    'ED': {'name': 'Consolidated Edison', 'category': 'US_UTILITY', 'is_crypto': False},
+    # US STOCKS - REAL ESTATE (10)
+    'AMT': {'name': 'American Tower', 'category': 'US_REALESTATE', 'is_crypto': False},
+    'PLD': {'name': 'Prologis', 'category': 'US_REALESTATE', 'is_crypto': False},
+    'CCI': {'name': 'Crown Castle', 'category': 'US_REALESTATE', 'is_crypto': False},
+    'O': {'name': 'Realty Income', 'category': 'US_REALESTATE', 'is_crypto': False},
+    'EQIX': {'name': 'Equinix', 'category': 'US_REALESTATE', 'is_crypto': False},
+    'SPG': {'name': 'Simon Property', 'category': 'US_REALESTATE', 'is_crypto': False},
+    'PSA': {'name': 'Public Storage', 'category': 'US_REALESTATE', 'is_crypto': False},
+    'DLR': {'name': 'Digital Realty', 'category': 'US_REALESTATE', 'is_crypto': False},
+    'WELL': {'name': 'Welltower', 'category': 'US_REALESTATE', 'is_crypto': False},
+    'AVB': {'name': 'AvalonBay', 'category': 'US_REALESTATE', 'is_crypto': False},
+    # US STOCKS - TELECOM & MEDIA (7)
+    'T': {'name': 'AT&T', 'category': 'US_TELECOM', 'is_crypto': False},
+    'VZ': {'name': 'Verizon', 'category': 'US_TELECOM', 'is_crypto': False},
+    'CMCSA': {'name': 'Comcast', 'category': 'US_TELECOM', 'is_crypto': False},
+    'DIS': {'name': 'Disney', 'category': 'US_TELECOM', 'is_crypto': False},
+    'NFLX': {'name': 'Netflix', 'category': 'US_TELECOM', 'is_crypto': False},
+    'TMUS': {'name': 'T-Mobile US', 'category': 'US_TELECOM', 'is_crypto': False},
+    'CHTR': {'name': 'Charter Communications', 'category': 'US_TELECOM', 'is_crypto': False},
+    # EUROPE - GERMANY (10)
+    'SAP': {'name': 'SAP SE', 'category': 'EU_GERMANY', 'is_crypto': False},
+    'SIE.DE': {'name': 'Siemens', 'category': 'EU_GERMANY', 'is_crypto': False},
+    'ALV.DE': {'name': 'Allianz', 'category': 'EU_GERMANY', 'is_crypto': False},
+    'DTE.DE': {'name': 'Deutsche Telekom', 'category': 'EU_GERMANY', 'is_crypto': False},
+    'MUV2.DE': {'name': 'Munich Re', 'category': 'EU_GERMANY', 'is_crypto': False},
+    'BAS.DE': {'name': 'BASF', 'category': 'EU_GERMANY', 'is_crypto': False},
+    'BMW.DE': {'name': 'BMW', 'category': 'EU_GERMANY', 'is_crypto': False},
+    'MBG.DE': {'name': 'Mercedes-Benz', 'category': 'EU_GERMANY', 'is_crypto': False},
+    'ADS.DE': {'name': 'Adidas', 'category': 'EU_GERMANY', 'is_crypto': False},
+    'IFX.DE': {'name': 'Infineon', 'category': 'EU_GERMANY', 'is_crypto': False},
+    # EUROPE - FRANCE (10)
+    'OR.PA': {'name': "L'Oreal", 'category': 'EU_FRANCE', 'is_crypto': False},
+    'MC.PA': {'name': 'LVMH', 'category': 'EU_FRANCE', 'is_crypto': False},
+    'SAN.PA': {'name': 'Sanofi', 'category': 'EU_FRANCE', 'is_crypto': False},
+    'AI.PA': {'name': 'Air Liquide', 'category': 'EU_FRANCE', 'is_crypto': False},
+    'BNP.PA': {'name': 'BNP Paribas', 'category': 'EU_FRANCE', 'is_crypto': False},
+    'SU.PA': {'name': 'Schneider Electric', 'category': 'EU_FRANCE', 'is_crypto': False},
+    'AIR.PA': {'name': 'Airbus', 'category': 'EU_FRANCE', 'is_crypto': False},
+    'CS.PA': {'name': 'AXA', 'category': 'EU_FRANCE', 'is_crypto': False},
+    'DG.PA': {'name': 'Vinci', 'category': 'EU_FRANCE', 'is_crypto': False},
+    'RI.PA': {'name': 'Pernod Ricard', 'category': 'EU_FRANCE', 'is_crypto': False},
+    # EUROPE - OTHER EUROZONE (16)
+    'ASML': {'name': 'ASML Holding', 'category': 'EU_NETHERLANDS', 'is_crypto': False},
+    'INGA.AS': {'name': 'ING Group', 'category': 'EU_NETHERLANDS', 'is_crypto': False},
+    'PHIA.AS': {'name': 'Philips', 'category': 'EU_NETHERLANDS', 'is_crypto': False},
+    'AD.AS': {'name': 'Ahold Delhaize', 'category': 'EU_NETHERLANDS', 'is_crypto': False},
+    'IBE.MC': {'name': 'Iberdrola', 'category': 'EU_SPAIN', 'is_crypto': False},
+    'SAN.MC': {'name': 'Santander', 'category': 'EU_SPAIN', 'is_crypto': False},
+    'TEF.MC': {'name': 'Telefonica', 'category': 'EU_SPAIN', 'is_crypto': False},
+    'ITX.MC': {'name': 'Inditex', 'category': 'EU_SPAIN', 'is_crypto': False},
+    'ENEL.MI': {'name': 'Enel', 'category': 'EU_ITALY', 'is_crypto': False},
+    'ISP.MI': {'name': 'Intesa Sanpaolo', 'category': 'EU_ITALY', 'is_crypto': False},
+    'UCG.MI': {'name': 'UniCredit', 'category': 'EU_ITALY', 'is_crypto': False},
+    'ENI.MI': {'name': 'Eni', 'category': 'EU_ITALY', 'is_crypto': False},
+    'KBC.BR': {'name': 'KBC Group', 'category': 'EU_BELGIUM', 'is_crypto': False},
+    'ABI.BR': {'name': 'AB InBev', 'category': 'EU_BELGIUM', 'is_crypto': False},
+    'NOK': {'name': 'Nokia', 'category': 'EU_FINLAND', 'is_crypto': False},
+    'CRH': {'name': 'CRH plc', 'category': 'EU_IRELAND', 'is_crypto': False},
+    # EUROPE - UK (9)
+    'SHEL': {'name': 'Shell', 'category': 'EU_UK', 'is_crypto': False},
+    'HSBC': {'name': 'HSBC', 'category': 'EU_UK', 'is_crypto': False},
+    'BP': {'name': 'BP', 'category': 'EU_UK', 'is_crypto': False},
+    'RIO': {'name': 'Rio Tinto', 'category': 'EU_UK', 'is_crypto': False},
+    'GSK': {'name': 'GSK', 'category': 'EU_UK', 'is_crypto': False},
+    'ULVR.L': {'name': 'Unilever', 'category': 'EU_UK', 'is_crypto': False},
+    'LSEG.L': {'name': 'London Stock Exchange', 'category': 'EU_UK', 'is_crypto': False},
+    'BATS.L': {'name': 'BAT', 'category': 'EU_UK', 'is_crypto': False},
+    'DGE.L': {'name': 'Diageo', 'category': 'EU_UK', 'is_crypto': False},
+    # EUROPE - SWITZERLAND (6)
+    'NESN.SW': {'name': 'Nestle', 'category': 'EU_SWISS', 'is_crypto': False},
+    'ROG.SW': {'name': 'Roche', 'category': 'EU_SWISS', 'is_crypto': False},
+    'NOVN.SW': {'name': 'Novartis', 'category': 'EU_SWISS', 'is_crypto': False},
+    'UBSG.SW': {'name': 'UBS', 'category': 'EU_SWISS', 'is_crypto': False},
+    'ZURN.SW': {'name': 'Zurich Insurance', 'category': 'EU_SWISS', 'is_crypto': False},
+    'ABBN.SW': {'name': 'ABB', 'category': 'EU_SWISS', 'is_crypto': False},
+    # EUROPE - NORDICS (5)
+    'NOVO-B.CO': {'name': 'Novo Nordisk', 'category': 'EU_NORDIC', 'is_crypto': False},
+    'ERIC-B.ST': {'name': 'Ericsson', 'category': 'EU_NORDIC', 'is_crypto': False},
+    'VOLV-B.ST': {'name': 'Volvo', 'category': 'EU_NORDIC', 'is_crypto': False},
+    'SAND.ST': {'name': 'Sandvik', 'category': 'EU_NORDIC', 'is_crypto': False},
+    'NESTE.HE': {'name': 'Neste', 'category': 'EU_NORDIC', 'is_crypto': False},
+    # ASIA - JAPAN (10)
+    '7203.T': {'name': 'Toyota', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    '6758.T': {'name': 'Sony', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    '6861.T': {'name': 'Keyence', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    '8306.T': {'name': 'Mitsubishi UFJ', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    '9984.T': {'name': 'SoftBank Group', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    '6501.T': {'name': 'Hitachi', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    '7267.T': {'name': 'Honda', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    '8035.T': {'name': 'Tokyo Electron', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    '4063.T': {'name': 'Shin-Etsu Chemical', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    '9432.T': {'name': 'NTT', 'category': 'ASIA_JAPAN', 'is_crypto': False},
+    # ASIA - AUSTRALIA (8)
+    'BHP.AX': {'name': 'BHP Group', 'category': 'ASIA_AUSTRALIA', 'is_crypto': False},
+    'CBA.AX': {'name': 'Commonwealth Bank', 'category': 'ASIA_AUSTRALIA', 'is_crypto': False},
+    'CSL.AX': {'name': 'CSL Limited', 'category': 'ASIA_AUSTRALIA', 'is_crypto': False},
+    'NAB.AX': {'name': 'National Australia Bank', 'category': 'ASIA_AUSTRALIA', 'is_crypto': False},
+    'WBC.AX': {'name': 'Westpac', 'category': 'ASIA_AUSTRALIA', 'is_crypto': False},
+    'FMG.AX': {'name': 'Fortescue Metals', 'category': 'ASIA_AUSTRALIA', 'is_crypto': False},
+    'WDS.AX': {'name': 'Woodside Energy', 'category': 'ASIA_AUSTRALIA', 'is_crypto': False},
+    'RIO.AX': {'name': 'Rio Tinto AU', 'category': 'ASIA_AUSTRALIA', 'is_crypto': False},
+    # ASIA - CHINA / HK (5)
+    'BABA': {'name': 'Alibaba', 'category': 'ASIA_CHINA', 'is_crypto': False},
+    'JD': {'name': 'JD.com', 'category': 'ASIA_CHINA', 'is_crypto': False},
+    'PDD': {'name': 'PDD Holdings', 'category': 'ASIA_CHINA', 'is_crypto': False},
+    'BIDU': {'name': 'Baidu', 'category': 'ASIA_CHINA', 'is_crypto': False},
+    '0700.HK': {'name': 'Tencent', 'category': 'ASIA_CHINA', 'is_crypto': False},
+    # COMMODITIES (17)
+    'GLD': {'name': 'Gold ETF', 'category': 'COMMODITY_PRECIOUS', 'is_crypto': False},
+    'SLV': {'name': 'Silver ETF', 'category': 'COMMODITY_PRECIOUS', 'is_crypto': False},
+    'PPLT': {'name': 'Platinum ETF', 'category': 'COMMODITY_PRECIOUS', 'is_crypto': False},
+    'GDX': {'name': 'Gold Miners', 'category': 'COMMODITY_PRECIOUS', 'is_crypto': False},
+    'GDXJ': {'name': 'Junior Gold Miners', 'category': 'COMMODITY_PRECIOUS', 'is_crypto': False},
+    'USO': {'name': 'WTI Oil ETF', 'category': 'COMMODITY_ENERGY', 'is_crypto': False},
+    'BNO': {'name': 'Brent Oil ETF', 'category': 'COMMODITY_ENERGY', 'is_crypto': False},
+    'UNG': {'name': 'Natural Gas ETF', 'category': 'COMMODITY_ENERGY', 'is_crypto': False},
+    'XLE': {'name': 'Energy Sector', 'category': 'COMMODITY_ENERGY', 'is_crypto': False},
+    'XOP': {'name': 'Oil & Gas Exploration', 'category': 'COMMODITY_ENERGY', 'is_crypto': False},
+    'CPER': {'name': 'Copper ETF', 'category': 'COMMODITY_INDUSTRIAL', 'is_crypto': False},
+    'DBB': {'name': 'Base Metals', 'category': 'COMMODITY_INDUSTRIAL', 'is_crypto': False},
+    'PICK': {'name': 'Metal Mining', 'category': 'COMMODITY_INDUSTRIAL', 'is_crypto': False},
+    'DBA': {'name': 'Agriculture ETF', 'category': 'COMMODITY_AGRICULTURE', 'is_crypto': False},
+    'WEAT': {'name': 'Wheat ETF', 'category': 'COMMODITY_AGRICULTURE', 'is_crypto': False},
+    'CORN': {'name': 'Corn ETF', 'category': 'COMMODITY_AGRICULTURE', 'is_crypto': False},
+    'SOYB': {'name': 'Soybeans ETF', 'category': 'COMMODITY_AGRICULTURE', 'is_crypto': False},
+    # INDEX ETFs (8)
+    'QQQ': {'name': 'Nasdaq-100', 'category': 'US_INDEX', 'is_crypto': False},
+    'TQQQ': {'name': 'Nasdaq 3x', 'category': 'US_INDEX_LEV', 'is_crypto': False},
+    'SPY': {'name': 'S&P 500', 'category': 'US_INDEX', 'is_crypto': False},
+    'SPXL': {'name': 'S&P 3x', 'category': 'US_INDEX_LEV', 'is_crypto': False},
+    'IWM': {'name': 'Russell 2000', 'category': 'US_INDEX', 'is_crypto': False},
+    'TNA': {'name': 'Russell 3x', 'category': 'US_INDEX_LEV', 'is_crypto': False},
+    'DIA': {'name': 'Dow Jones', 'category': 'US_INDEX', 'is_crypto': False},
+    'BITO': {'name': 'Bitcoin ETF', 'category': 'US_INDEX', 'is_crypto': False},
+    # ETFs SECTORIALES (6)
+    'SMH': {'name': 'Semiconductors ETF', 'category': 'ETF_SECTOR', 'is_crypto': False},
+    'XBI': {'name': 'Biotech ETF', 'category': 'ETF_SECTOR', 'is_crypto': False},
+    'XLU': {'name': 'Utilities ETF', 'category': 'ETF_SECTOR', 'is_crypto': False},
+    'XLI': {'name': 'Industrials ETF', 'category': 'ETF_SECTOR', 'is_crypto': False},
+    'XLF': {'name': 'Financials ETF', 'category': 'ETF_SECTOR', 'is_crypto': False},
+    'XLV': {'name': 'Healthcare ETF', 'category': 'ETF_SECTOR', 'is_crypto': False},
+    # ETFs INTERNACIONALES (10)
+    'EEM': {'name': 'Emerging Markets', 'category': 'ETF_INTL', 'is_crypto': False},
+    'VWO': {'name': 'Vanguard EM', 'category': 'ETF_INTL', 'is_crypto': False},
+    'EFA': {'name': 'EAFE (Developed ex-US)', 'category': 'ETF_INTL', 'is_crypto': False},
+    'FXI': {'name': 'China Large Cap', 'category': 'ETF_INTL', 'is_crypto': False},
+    'EWJ': {'name': 'Japan ETF', 'category': 'ETF_INTL', 'is_crypto': False},
+    'EWG': {'name': 'Germany ETF', 'category': 'ETF_INTL', 'is_crypto': False},
+    'EWU': {'name': 'UK ETF', 'category': 'ETF_INTL', 'is_crypto': False},
+    'INDA': {'name': 'India ETF', 'category': 'ETF_INTL', 'is_crypto': False},
+    'EWZ': {'name': 'Brazil ETF', 'category': 'ETF_INTL', 'is_crypto': False},
+    'EWT': {'name': 'Taiwan ETF', 'category': 'ETF_INTL', 'is_crypto': False},
+    # FIXED INCOME (8)
+    'TLT': {'name': 'Treasury 20+ Year', 'category': 'FIXED_INCOME', 'is_crypto': False},
+    'IEF': {'name': 'Treasury 7-10 Year', 'category': 'FIXED_INCOME', 'is_crypto': False},
+    'SHY': {'name': 'Treasury 1-3 Year', 'category': 'FIXED_INCOME', 'is_crypto': False},
+    'TIP': {'name': 'TIPS (Inflation)', 'category': 'FIXED_INCOME', 'is_crypto': False},
+    'AGG': {'name': 'US Aggregate Bond', 'category': 'FIXED_INCOME', 'is_crypto': False},
+    'LQD': {'name': 'Investment Grade Corp', 'category': 'FIXED_INCOME', 'is_crypto': False},
+    'HYG': {'name': 'High Yield Corp', 'category': 'FIXED_INCOME', 'is_crypto': False},
+    'EMB': {'name': 'EM Sovereign Debt', 'category': 'FIXED_INCOME', 'is_crypto': False},
+}
+
+TICKERS = list(ASSETS.keys())
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INDICATORS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def calculate_kaufman_efficiency_ratio(close, period=10):
+    direction = (close - close.shift(period)).abs()
+    volatility = close.diff().abs().rolling(window=period).sum()
+    er = direction / volatility.replace(0, np.nan)
+    return er.fillna(0)
+
+def calculate_atr(high, low, close, period=14):
+    tr1 = high - low
+    tr2 = (high - close.shift(1)).abs()
+    tr3 = (low - close.shift(1)).abs()
+    true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    return true_range.rolling(window=period).mean()
+
+def calculate_rsi(close, period=14):
+    delta = close.diff()
+    gain = delta.where(delta > 0, 0.0).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0.0)).rolling(window=period).mean()
+    rs = gain / loss.replace(0, np.nan)
+    rsi = 100 - (100 / (1 + rs))
+    return rsi.fillna(50)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SIGNAL ENGINE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class MomentumEngine:
+    def __init__(self, breakout_period=20, volume_threshold=1.3, ker_threshold=0.40,
+                 rsi_threshold=55, rsi_max=75, rsi_period=14, atr_period=14,
+                 ker_period=10, use_time_normalized_volume=True, longs_only=True):
+        self.breakout_period = breakout_period
+        self.volume_threshold = volume_threshold
+        self.ker_threshold = ker_threshold
+        self.rsi_threshold = rsi_threshold
+        self.rsi_max = rsi_max
+        self.rsi_period = rsi_period
+        self.atr_period = atr_period
+        self.ker_period = ker_period
+        self.longs_only = longs_only
+
+    def generate_signals(self, df):
+        df = df.copy()
+        df['_rsi'] = calculate_rsi(df['Close'], self.rsi_period)
+        df['_atr'] = calculate_atr(df['High'], df['Low'], df['Close'], self.atr_period)
+        df['_ker'] = calculate_kaufman_efficiency_ratio(df['Close'], self.ker_period)
+        vol_sma = df['Volume'].rolling(window=20).mean()
+        df['_vol_ratio'] = (df['Volume'] / vol_sma.replace(0, 1.0)).fillna(1.0)
+        df['_rolling_high'] = df['High'].rolling(window=self.breakout_period).max()
+
+        is_trending = df['_ker'].shift(1) > self.ker_threshold
+        rsi_bullish = (df['_rsi'].shift(1) > self.rsi_threshold) & (df['_rsi'].shift(1) < self.rsi_max)
+        vol_confirmed = df['_vol_ratio'].shift(1) > self.volume_threshold
+        breakout_long = df['Close'].shift(1) > df['_rolling_high'].shift(2)
+
+        long_signal = is_trending & rsi_bullish & breakout_long & vol_confirmed
+        signals = pd.Series(0, index=df.index, name='signal')
+        signals.loc[long_signal] = 1
+
+        warmup = max(self.breakout_period, self.rsi_period, self.atr_period, self.ker_period) + 5
+        signals.iloc[:warmup] = 0
+        return signals
+
+    def generate_signals_with_metadata(self, df):
+        df = df.copy()
+        df['rsi'] = calculate_rsi(df['Close'], self.rsi_period)
+        df['atr'] = calculate_atr(df['High'], df['Low'], df['Close'], self.atr_period)
+        df['ker'] = calculate_kaufman_efficiency_ratio(df['Close'], self.ker_period)
+        vol_sma = df['Volume'].rolling(window=20).mean()
+        df['vol_ratio'] = (df['Volume'] / vol_sma.replace(0, 1.0)).fillna(1.0)
+        df['rolling_high'] = df['High'].rolling(window=self.breakout_period).max()
+        df['signal'] = self.generate_signals(df)
+        return df
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POSITION SIZING (used by scanner/paper trading)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def calculate_position_size(account_balance, current_atr, price,
+                            target_vol_annual=0.20, timeframe_hours=4,
+                            is_crypto=False, contract_multiplier=1.0,
+                            min_size=0.001, max_leverage=1.0):
+    if account_balance <= 0 or price <= 0:
+        return {'units': 0, 'notional': 0, 'risk_pct': 0, 'atr_pct': 0, 'daily_vol_est': 0, 'leverage': 0}
+    trading_days = 365 if is_crypto else 252
+    trading_hours_per_day = 24 if is_crypto else 6.5
+    bars_per_day = trading_hours_per_day / timeframe_hours
+    target_daily_vol = target_vol_annual / np.sqrt(trading_days)
+    atr_pct = current_atr / price if price > 0 else 0.02
+    daily_vol_estimate = atr_pct * np.sqrt(bars_per_day)
+    if daily_vol_estimate < 0.005:
+        daily_vol_estimate = 0.02
+    dollar_risk = account_balance * target_daily_vol
+    position_value = dollar_risk / daily_vol_estimate
+    max_position_value = account_balance * max_leverage
+    position_value = min(position_value, max_position_value)
+    units = position_value / (price * contract_multiplier)
+    units = max(units, min_size)
+    actual_notional = units * price * contract_multiplier
+    actual_leverage = actual_notional / account_balance
+    actual_risk_pct = (actual_notional * daily_vol_estimate) / account_balance
+    return {
+        'units': round(units, 6), 'notional': round(actual_notional, 2),
+        'risk_pct': round(actual_risk_pct * 100, 2), 'atr_pct': round(atr_pct * 100, 4),
+        'daily_vol_est': round(daily_vol_estimate * 100, 2), 'leverage': round(actual_leverage, 2)
+    }
+
+
+================================================================================
+===== ARCHIVO 3: backtest_experimental.py ======================================
+================================================================================
+
+#!/usr/bin/env python3
+"""
+BACKTEST v8 — Momentum Breakout con Opciones CALL + Universo Expandido
+Validado a 240 meses: +37,780% total, +34.6% anualizado, PF 2.89, MaxDD -42.6%.
+
+Uso: python3 backtest_experimental.py --months 240 --test b --verbose
+"""
+
+import yfinance as yf
+import pandas as pd
+import numpy as np
+from scipy.stats import norm
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+import warnings
+warnings.filterwarnings('ignore')
+
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from momentum_breakout import MomentumEngine, calculate_atr, ASSETS
+
+# --- CONSTANTES ---
+
+LEVERAGE_FACTORS = {
+    'UGL': 2.0, 'AGQ': 2.0, 'UCO': 2.0,
+    'TQQQ': 3.0, 'SPXL': 3.0, 'TNA': 3.0,
+    'NUGT': 3.0, 'BOIL': 3.0, 'ERX': 3.0, 'SOXL': 3.0, 'UDOW': 3.0, 'TMF': 3.0,
+}
+LEVERAGED_ADDITIONS = ['UGL', 'AGQ', 'UCO', 'NUGT', 'BOIL', 'ERX', 'SOXL', 'UDOW', 'TMF']
+
+OPTIONS_ELIGIBLE = [
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'AVGO',
+    'ORCL', 'CRM', 'ADBE', 'AMD', 'INTC', 'CSCO', 'QCOM',
+    'JPM', 'BAC', 'WFC', 'GS', 'MS', 'BLK', 'SCHW', 'C', 'AXP',
+    'UNH', 'JNJ', 'LLY', 'PFE', 'ABBV', 'MRK', 'TMO', 'ABT',
+    'WMT', 'HD', 'PG', 'KO', 'PEP', 'COST', 'MCD', 'NKE', 'SBUX', 'TGT',
+    'CAT', 'HON', 'GE', 'UNP', 'DE', 'RTX', 'LMT', 'MMM', 'EMR', 'ETN',
+    'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'MPC', 'VLO', 'OXY', 'HAL',
+    'NEE', 'SO', 'DUK', 'D', 'AEP',
+    'AMT', 'PLD', 'EQIX', 'SPG', 'PSA', 'DLR', 'O',
+    'T', 'VZ', 'CMCSA', 'DIS', 'NFLX', 'TMUS',
+    'BABA', 'JD', 'PDD', 'BIDU',
+    'QQQ', 'SPY', 'IWM', 'DIA', 'GLD', 'SLV', 'XLE', 'TLT',
+    'TQQQ', 'SPXL', 'TNA', 'BITO',
+    'SMH', 'XBI', 'XLU', 'XLI', 'XLF', 'XLV', 'EEM', 'EFA', 'HYG',
+]
+
+BASE_TICKERS = [t for t, v in ASSETS.items()]
+EXPANDED_TICKERS = BASE_TICKERS + LEVERAGED_ADDITIONS
+
+CONFIG = {
+    'initial_capital': 10000,
+    'target_risk_per_trade_pct': 2.0,
+    'max_positions': 10,
+    'ker_threshold': 0.40,
+    'volume_threshold': 1.3,
+    'rsi_threshold': 50,
+    'rsi_max': 75,
+    'breakout_period': 20,
+    'longs_only': True,
+    'emergency_stop_pct': 0.15,
+    'trail_trigger_r': 2.0,
+    'trail_atr_mult': 4.0,
+    'max_hold_bars': 8,
+    'time_exit_trail_atr_mult': 3.0,
+    'use_macro_filter': True,
+    'macro_ticker': 'SPY',
+    'macro_sma_period': 50,
+    'slippage_pct': 0.10,
+    'option_dte': 120,
+    'option_itm_pct': 0.05,
+    'risk_free_rate': 0.043,
+    'hvol_window': 30,
+    'option_spread_pct': 3.0,
+    'option_close_dte': 45,
+    'option_max_ivr': 40,
+    'option_ivr_window': 252,
+    'option_position_pct': 0.14,
+    'max_option_positions': 2,
+}
+
+# --- BLACK-SCHOLES ---
+
+def black_scholes_call(S, K, T, r, sigma):
+    if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
+        return {'price': max(S - K, 0), 'delta': 1.0 if S > K else 0}
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    price = S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+    delta = norm.cdf(d1)
+    return {'price': max(price, 0.01), 'delta': delta}
+
+def historical_volatility(close_prices, window=30):
+    log_returns = np.log(close_prices / close_prices.shift(1))
+    return log_returns.rolling(window=window).std() * np.sqrt(252)
+
+def monthly_expiration_dte(entry_date, target_dte=120):
+    target_date = entry_date + timedelta(days=target_dte)
+    year, month = target_date.year, target_date.month
+    first_day = datetime(year, month, 1)
+    first_friday = first_day + timedelta(days=(4 - first_day.weekday()) % 7)
+    third_friday = first_friday + timedelta(weeks=2)
+    candidates = []
+    for delta_months in [-1, 0, 1]:
+        m = month + delta_months
+        y = year
+        if m < 1: m = 12; y -= 1
+        elif m > 12: m = 1; y += 1
+        first_day_m = datetime(y, m, 1)
+        first_friday_m = first_day_m + timedelta(days=(4 - first_day_m.weekday()) % 7)
+        third_friday_m = first_friday_m + timedelta(weeks=2)
+        if third_friday_m > entry_date:
+            candidates.append(third_friday_m)
+    if not candidates:
+        return target_dte
+    best = min(candidates, key=lambda d: abs((d - entry_date).days - target_dte))
+    return (best - entry_date).days
+
+def iv_rank(hvol_series, current_idx, window=252):
+    start = max(0, current_idx - window)
+    hist = hvol_series.iloc[start:current_idx + 1].dropna()
+    if len(hist) < 20:
+        return 50.0
+    iv_now = hist.iloc[-1]
+    iv_min = hist.min()
+    iv_max = hist.max()
+    if iv_max == iv_min:
+        return 50.0
+    return (iv_now - iv_min) / (iv_max - iv_min) * 100
+
+# --- TRADE CLASSES ---
+
+@dataclass
+class Trade:
+    ticker: str
+    entry_price: float
+    entry_date: datetime
+    entry_atr: float
+    position_euros: float
+    position_units: float
+    R: float = field(init=False)
+    trailing_stop: Optional[float] = field(default=None)
+    trailing_active: bool = field(default=False)
+    highest_since: float = field(init=False)
+    max_r_mult: float = field(default=0.0)
+    bars_held: int = field(default=0)
+    exit_price: Optional[float] = field(default=None)
+    exit_date: Optional[datetime] = field(default=None)
+    exit_reason: Optional[str] = field(default=None)
+    pnl_euros: float = field(default=0.0)
+    pnl_pct: float = field(default=0.0)
+
+    def __post_init__(self):
+        self.R = self.entry_atr * 2.0
+        self.highest_since = self.entry_price
+
+    def update(self, high, low, close, current_atr):
+        self.bars_held += 1
+        self.highest_since = max(self.highest_since, high)
+        r_mult = (close - self.entry_price) / self.R if self.R > 0 else 0
+        self.max_r_mult = max(self.max_r_mult, r_mult)
+
+        emergency_level = self.entry_price * (1 - CONFIG['emergency_stop_pct'])
+        if low <= emergency_level:
+            self._close(emergency_level * (1 - CONFIG['slippage_pct'] / 100), 'emergency_stop')
+            return {'type': 'full_exit', 'reason': 'emergency_stop'}
+
+        if self.trailing_active and self.trailing_stop is not None:
+            if low <= self.trailing_stop:
+                self._close(self.trailing_stop * (1 - CONFIG['slippage_pct'] / 100), 'trailing_stop')
+                return {'type': 'full_exit', 'reason': 'trailing_stop'}
+
+        if r_mult >= CONFIG['trail_trigger_r']:
+            chandelier = self.highest_since - (current_atr * CONFIG['trail_atr_mult'])
+            if not self.trailing_active:
+                self.trailing_active = True
+                self.trailing_stop = chandelier
+            elif chandelier > self.trailing_stop:
+                self.trailing_stop = chandelier
+
+        if self.bars_held >= CONFIG['max_hold_bars']:
+            if not self.trailing_active:
+                trail_mult = CONFIG.get('time_exit_trail_atr_mult', 3.0)
+                chandelier = self.highest_since - (current_atr * trail_mult)
+                breakeven = self.entry_price * (1 + CONFIG['slippage_pct'] / 100)
+                self.trailing_active = True
+                if close <= self.entry_price:
+                    self.trailing_stop = max(chandelier, self.entry_price * 0.95)
+                else:
+                    self.trailing_stop = max(chandelier, breakeven)
+        return None
+
+    def _close(self, exit_price, reason):
+        self.pnl_euros = (exit_price - self.entry_price) * self.position_units
+        self.pnl_pct = (self.pnl_euros / self.position_euros) * 100 if self.position_euros > 0 else 0
+        self.exit_price = exit_price
+        self.exit_reason = reason
+
+
+@dataclass
+class OptionTradeV2:
+    ticker: str
+    entry_date: datetime
+    entry_stock_price: float
+    strike: float
+    dte_at_entry: int
+    entry_option_price: float
+    entry_iv: float
+    num_contracts: float
+    position_euros: float
+    bars_held: int = field(default=0)
+    max_option_value: float = field(init=False)
+    max_r_mult: float = field(default=0.0)
+    exit_date: Optional[datetime] = field(default=None)
+    exit_option_price: float = field(default=0.0)
+    exit_reason: Optional[str] = field(default=None)
+    pnl_euros: float = field(default=0.0)
+    pnl_pct: float = field(default=0.0)
+
+    def __post_init__(self):
+        self.max_option_value = self.entry_option_price
+
+    def update(self, stock_price, current_iv, days_elapsed):
+        self.bars_held += 1
+        remaining_dte = max(self.dte_at_entry - days_elapsed, 0)
+        T = remaining_dte / 365.0
+        bs = black_scholes_call(S=stock_price, K=self.strike, T=T,
+                                r=CONFIG['risk_free_rate'], sigma=current_iv)
+        current_option_price = bs['price']
+        current_option_price *= (1 - CONFIG['option_spread_pct'] / 100 / 2)
+        self.max_option_value = max(self.max_option_value, current_option_price)
+        option_return = (current_option_price / self.entry_option_price) - 1 if self.entry_option_price > 0 else 0
+        self.max_r_mult = max(self.max_r_mult, option_return)
+
+        if remaining_dte <= 0:
+            intrinsic = max(stock_price - self.strike, 0)
+            intrinsic *= (1 - CONFIG['option_spread_pct'] / 100 / 2)
+            self._close(intrinsic, 'expiration')
+            return {'type': 'full_exit', 'reason': 'expiration'}
+        if remaining_dte <= CONFIG.get('option_close_dte', 45):
+            self._close(current_option_price, 'dte_exit')
+            return {'type': 'full_exit', 'reason': 'dte_exit'}
+        return None
+
+    def _close(self, exit_option_price, reason):
+        self.exit_option_price = exit_option_price
+        self.exit_reason = reason
+        self.pnl_euros = (exit_option_price - self.entry_option_price) * self.num_contracts * 100
+        self.pnl_pct = ((exit_option_price / self.entry_option_price) - 1) * 100 if self.entry_option_price > 0 else 0
+
+
+# --- EQUITY TRACKER ---
+
+class EquityTracker:
+    def __init__(self, initial_capital):
+        self.initial_capital = initial_capital
+        self.equity = initial_capital
+        self.equity_curve = []
+        self.max_equity = initial_capital
+        self.open_positions = 0
+        self.open_options = 0
+
+    def get_position_size(self, ticker, current_atr, price, use_leverage_scaling=False):
+        base_risk_pct = CONFIG['target_risk_per_trade_pct'] / 100
+        risk_pct = base_risk_pct * LEVERAGE_FACTORS.get(ticker, 1.0) if use_leverage_scaling else base_risk_pct
+        R = current_atr * 2.0
+        if R <= 0 or price <= 0:
+            return {'units': 0, 'notional': 0}
+        dollar_risk = self.equity * risk_pct
+        units = dollar_risk / R
+        notional = units * price
+        max_notional = self.equity / CONFIG['max_positions'] * 2
+        if notional > max_notional:
+            notional = max_notional
+            units = notional / price
+        return {'units': units, 'notional': notional}
+
+    def get_option_size(self, option_price):
+        position_pct = CONFIG.get('option_position_pct', 0.20)
+        max_premium = self.equity * position_pct
+        if option_price <= 0:
+            return {'contracts': 0, 'premium': 0}
+        contracts = max_premium / (option_price * 100)
+        premium = contracts * option_price * 100
+        return {'contracts': contracts, 'premium': premium}
+
+    def update_equity(self, pnl, date):
+        self.equity += pnl
+        self.equity_curve.append((date, self.equity))
+        self.max_equity = max(self.max_equity, self.equity)
+
+    def get_max_drawdown(self):
+        if not self.equity_curve:
+            return 0
+        equity_values = [self.initial_capital] + [e[1] for e in self.equity_curve]
+        peak = equity_values[0]
+        max_dd = 0
+        for eq in equity_values:
+            if eq > peak: peak = eq
+            dd = (peak - eq) / peak * 100 if peak > 0 else 0
+            max_dd = max(max_dd, dd)
+        return max_dd
+
+
+# --- DATA DOWNLOAD ---
+
+def download_data(ticker, months):
+    try:
+        if months > 60:
+            end = datetime.now()
+            start = end - timedelta(days=months * 30)
+            df = yf.download(ticker, start=start.strftime('%Y-%m-%d'),
+                             end=end.strftime('%Y-%m-%d'), interval='1d', progress=False)
+        else:
+            df = yf.download(ticker, period=f'{months}mo', interval='1d', progress=False)
+        if df.empty: return None
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        return df if len(df) >= 50 else None
+    except Exception:
+        return None
+
+
+# --- SIGNAL GENERATION + RANKING ---
+
+def generate_all_signals(all_data, engine):
+    signals_data = {}
+    total_signals = 0
+    for ticker, df in all_data.items():
+        meta = engine.generate_signals_with_metadata(df)
+        signals = meta['signal']
+        n_long = (signals == 1).sum()
+        total_signals += n_long
+        signals_data[ticker] = {
+            'df': df, 'signals': signals,
+            'ker': meta['ker'], 'rsi': meta['rsi'], 'vol_ratio': meta['vol_ratio'],
+        }
+    return signals_data, total_signals
+
+def build_macro_filter(all_data):
+    macro_bullish = {}
+    macro_ticker = CONFIG['macro_ticker']
+    if macro_ticker in all_data:
+        macro_df = all_data[macro_ticker]
+        sma = macro_df['Close'].rolling(window=CONFIG['macro_sma_period']).mean()
+        for date in macro_df.index:
+            sma_val = sma.loc[date] if date in sma.index else None
+            close_val = macro_df['Close'].loc[date] if date in macro_df.index else None
+            if sma_val is not None and close_val is not None and not pd.isna(sma_val):
+                macro_bullish[date] = close_val > sma_val
+            else:
+                macro_bullish[date] = True
+    return macro_bullish
+
+def rank_candidates(candidates, signals_data):
+    ranked = []
+    for ticker, idx, prev_atr in candidates:
+        sd = signals_data[ticker]
+        df_t = sd['df']
+        prev_idx = idx - 1
+        ker_val = sd['ker'].iloc[prev_idx] if prev_idx >= 0 else 0
+        rsi_val = sd['rsi'].iloc[prev_idx] if prev_idx >= 0 else 50
+        rsi_score = max(0, min(1, (rsi_val - CONFIG['rsi_threshold']) / (CONFIG['rsi_max'] - CONFIG['rsi_threshold'])))
+        vol_val = sd['vol_ratio'].iloc[prev_idx] if prev_idx >= 0 else 1.0
+        vol_score = min(1, max(0, (vol_val - 1.0) / 2.0))
+        if prev_idx >= 1:
+            close_prev = df_t['Close'].iloc[prev_idx]
+            rolling_high_prev = df_t['High'].iloc[max(0, prev_idx - CONFIG['breakout_period']):prev_idx].max()
+            breakout_pct = (close_prev - rolling_high_prev) / rolling_high_prev if rolling_high_prev > 0 else 0
+            breakout_score = min(1, max(0, breakout_pct / 0.05))
+        else:
+            breakout_score = 0
+        price_prev = df_t['Close'].iloc[prev_idx] if prev_idx >= 0 else 1
+        atr_pct = prev_atr / price_prev if price_prev > 0 else 0
+        atr_score = min(1, atr_pct / 0.04)
+        composite = (0.30 * ker_val + 0.20 * rsi_score + 0.20 * vol_score +
+                     0.15 * breakout_score + 0.15 * atr_score)
+        ranked.append((ticker, idx, prev_atr, composite))
+    ranked.sort(key=lambda x: x[3], reverse=True)
+    return ranked
+
+def find_candidates(signals_data, active_trades, current_date, is_macro_ok, macro_exempt_set=None):
+    candidates = []
+    for ticker, sd in signals_data.items():
+        if ticker in active_trades: continue
+        df = sd['df']
+        signals = sd['signals']
+        if current_date not in df.index: continue
+        idx = df.index.get_loc(current_date)
+        if idx < 1: continue
+        prev_signal = signals.iloc[idx - 1]
+        if prev_signal != 1: continue
+        if not is_macro_ok and not (macro_exempt_set and ticker in macro_exempt_set): continue
+        prev_atr = df['ATR'].iloc[idx - 1]
+        if pd.isna(prev_atr) or prev_atr <= 0: continue
+        candidates.append((ticker, idx, prev_atr))
+    return candidates
+
+
+# --- CORE BACKTEST ENGINE ---
+# (run_backtest function - the main backtest loop)
+# See full implementation in backtest_experimental.py
+# It iterates over all dates, manages active trades/options,
+# finds new candidates, ranks them, and opens positions.
+
+def run_backtest(months, tickers, label, use_leverage_scaling=False,
+                 use_options=False, macro_exempt_set=None, verbose=False):
+    n_tickers = len(tickers)
+    print(f"\n{'='*70}")
+    print(f"  {label} -- {months} MESES -- {n_tickers} tickers")
+    print(f"{'='*70}")
+
+    print("  Descargando datos...")
+    all_data = {}
+    failed = []
+    for i, ticker in enumerate(tickers):
+        df = download_data(ticker, months)
+        if df is not None:
+            df['ATR'] = calculate_atr(df['High'], df['Low'], df['Close'], 14)
+            df['HVOL'] = historical_volatility(df['Close'], CONFIG['hvol_window'])
+            all_data[ticker] = df
+        else:
+            failed.append(ticker)
+    print(f"  Tickers con datos: {len(all_data)}")
+
+    if not all_data:
+        return {'error': 'No data'}
+
+    engine = MomentumEngine(
+        ker_threshold=CONFIG['ker_threshold'], volume_threshold=CONFIG['volume_threshold'],
+        rsi_threshold=CONFIG['rsi_threshold'], rsi_max=CONFIG['rsi_max'],
+        breakout_period=CONFIG['breakout_period'], longs_only=CONFIG['longs_only']
+    )
+    signals_data, total_signals = generate_all_signals(all_data, engine)
+    macro_bullish = build_macro_filter(all_data)
+    all_dates = sorted(set(d for sd in signals_data.values() for d in sd['df'].index.tolist()))
+
+    tracker = EquityTracker(CONFIG['initial_capital'])
+    active_trades = {}
+    active_options = {}
+    all_trades = []
+    all_option_trades = []
+
+    for current_date in all_dates:
+        # 1. Manage active stock trades
+        trades_to_close = []
+        for ticker, trade in active_trades.items():
+            if ticker not in signals_data: continue
+            df = signals_data[ticker]['df']
+            if current_date not in df.index: continue
+            idx = df.index.get_loc(current_date)
+            bar = df.iloc[idx]
+            result = trade.update(bar['High'], bar['Low'], bar['Close'], df['ATR'].iloc[idx])
+            if result and result['type'] == 'full_exit':
+                trade.exit_date = current_date
+                trades_to_close.append(ticker)
+                tracker.update_equity(trade.pnl_euros, current_date)
+        for ticker in trades_to_close:
+            trade = active_trades.pop(ticker)
+            tracker.open_positions -= 1
+            all_trades.append(trade)
+
+        # 2. Manage active options
+        options_to_close = []
+        for ticker, opt in active_options.items():
+            if ticker not in signals_data: continue
+            df = signals_data[ticker]['df']
+            if current_date not in df.index: continue
+            idx = df.index.get_loc(current_date)
+            bar = df.iloc[idx]
+            days_elapsed = (current_date - opt.entry_date).days
+            iv = df['HVOL'].iloc[idx]
+            if pd.isna(iv) or iv <= 0: iv = opt.entry_iv
+            result = opt.update(bar['Close'], iv, days_elapsed)
+            if result and result['type'] == 'full_exit':
+                opt.exit_date = current_date
+                options_to_close.append(ticker)
+                tracker.update_equity(opt.pnl_euros, current_date)
+        for ticker in options_to_close:
+            opt = active_options.pop(ticker)
+            tracker.open_positions -= 1
+            tracker.open_options -= 1
+            all_option_trades.append(opt)
+
+        # 3. Find new signals
+        if CONFIG['use_macro_filter']:
+            if current_date in macro_bullish:
+                is_macro_ok = macro_bullish[current_date]
+            else:
+                prev_dates = [d for d in macro_bullish if d < current_date]
+                is_macro_ok = macro_bullish[prev_dates[-1]] if prev_dates else False
+        else:
+            is_macro_ok = True
+
+        if tracker.open_positions < CONFIG['max_positions'] and (is_macro_ok or macro_exempt_set):
+            candidates = find_candidates(signals_data, {**active_trades, **active_options},
+                                        current_date, is_macro_ok, macro_exempt_set)
+            ranked = rank_candidates(candidates, signals_data)
+
+            for ticker, idx, prev_atr, composite_score in ranked:
+                if tracker.open_positions >= CONFIG['max_positions']: break
+                df = signals_data[ticker]['df']
+                bar = df.iloc[idx]
+
+                open_as_option = False
+                current_ivr = None
+                if use_options and ticker in OPTIONS_ELIGIBLE and tracker.open_options < CONFIG['max_option_positions']:
+                    hvol_series = df['HVOL']
+                    current_ivr = iv_rank(hvol_series, idx, CONFIG.get('option_ivr_window', 252))
+                    if current_ivr < CONFIG.get('option_max_ivr', 40):
+                        open_as_option = True
+
+                if open_as_option:
+                    stock_price = bar['Open']
+                    strike = stock_price * (1 - CONFIG['option_itm_pct'])
+                    actual_dte = monthly_expiration_dte(current_date, CONFIG['option_dte'])
+                    T = actual_dte / 365.0
+                    iv = df['HVOL'].iloc[idx]
+                    if pd.isna(iv) or iv <= 0: iv = 0.30
+                    bs = black_scholes_call(stock_price, strike, T, CONFIG['risk_free_rate'], iv)
+                    option_price = bs['price'] * (1 + CONFIG['option_spread_pct'] / 100 / 2)
+                    size = tracker.get_option_size(option_price)
+                    if size['premium'] < 50: continue
+                    opt = OptionTradeV2(
+                        ticker=ticker, entry_date=current_date, entry_stock_price=stock_price,
+                        strike=strike, dte_at_entry=actual_dte, entry_option_price=option_price,
+                        entry_iv=iv, num_contracts=size['contracts'], position_euros=size['premium'],
+                    )
+                    active_options[ticker] = opt
+                    tracker.open_positions += 1
+                    tracker.open_options += 1
+                else:
+                    size_info = tracker.get_position_size(ticker, prev_atr, bar['Open'], use_leverage_scaling)
+                    entry_price = bar['Open'] * (1 + CONFIG['slippage_pct'] / 100)
+                    position_euros = size_info['notional']
+                    position_units = size_info['units']
+                    max_per_position = tracker.equity / CONFIG['max_positions']
+                    if position_euros > max_per_position:
+                        position_euros = max_per_position
+                        position_units = position_euros / entry_price
+                    if position_euros < 100: continue
+                    trade = Trade(
+                        ticker=ticker, entry_price=entry_price, entry_date=current_date,
+                        entry_atr=prev_atr, position_euros=position_euros, position_units=position_units,
+                    )
+                    active_trades[ticker] = trade
+                    tracker.open_positions += 1
+
+    # Close remaining at end of data
+    for ticker, trade in active_trades.items():
+        if ticker in signals_data:
+            df = signals_data[ticker]['df']
+            trade._close(df['Close'].iloc[-1], 'end_of_data')
+            trade.exit_date = df.index[-1]
+            tracker.update_equity(trade.pnl_euros, df.index[-1])
+            all_trades.append(trade)
+    for ticker, opt in active_options.items():
+        if ticker in signals_data:
+            df = signals_data[ticker]['df']
+            intrinsic = max(df['Close'].iloc[-1] - opt.strike, 0)
+            opt._close(intrinsic, 'end_of_data')
+            opt.exit_date = df.index[-1]
+            tracker.update_equity(opt.pnl_euros, df.index[-1])
+            all_option_trades.append(opt)
+
+    # --- METRICS ---
+    combined_trades = all_trades + all_option_trades
+    if not combined_trades:
+        return {'error': 'No trades'}
+
+    total_count = len(combined_trades)
+    winners = [t for t in combined_trades if t.pnl_euros > 0]
+    losers = [t for t in combined_trades if t.pnl_euros <= 0]
+    total_pnl = sum(t.pnl_euros for t in combined_trades)
+    win_rate = len(winners) / total_count * 100
+    gross_profit = sum(t.pnl_euros for t in winners) if winners else 0
+    gross_loss = abs(sum(t.pnl_euros for t in losers)) if losers else 0.01
+    profit_factor = gross_profit / gross_loss
+    max_dd = tracker.get_max_drawdown()
+    total_return_pct = (tracker.equity / CONFIG['initial_capital'] - 1) * 100
+    annualized = ((1 + total_return_pct / 100) ** (12 / months) - 1) * 100 if months > 0 else 0
+
+    print(f"\n  RESULTADOS {label} -- {months} MESES")
+    print(f"  Capital: EUR {CONFIG['initial_capital']:,} → EUR {tracker.equity:,.0f}")
+    print(f"  Return: {total_return_pct:+.1f}% | Anualizado: {annualized:+.1f}%")
+    print(f"  Trades: {total_count} | Win: {win_rate:.1f}% | PF: {profit_factor:.2f} | MaxDD: -{max_dd:.1f}%")
+
+    return {
+        'label': label, 'total_trades': total_count, 'win_rate': win_rate,
+        'total_return_pct': total_return_pct, 'profit_factor': profit_factor,
+        'max_drawdown': max_dd, 'final_equity': tracker.equity,
+    }
+
+
+# --- MAIN ---
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--months', type=int, default=18)
+    parser.add_argument('--verbose', action='store_true')
+    parser.add_argument('--test', choices=['all', 'a', 'b', 'c', 'baseline'], default='all')
+    args = parser.parse_args()
+
+    if args.test in ('all', 'b'):
+        run_backtest(args.months, BASE_TICKERS, "v8 (Opciones CALL)",
+                     use_options=True, verbose=args.verbose)
+
+if __name__ == "__main__":
+    main()
+
+
+================================================================================
+===== FIN ======================================================================
+================================================================================

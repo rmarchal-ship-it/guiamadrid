@@ -1,0 +1,10 @@
+entry_date,exit_date,ticker,entry_price,exit_price,position_eur,units,pnl_eur,pnl_pct,bars_held,max_r_mult,exit_reason,total_costs,commission_total,slippage_total,spread_total
+2026-02-11,2026-02-20,RI.PA,82.68,84.5,2319.94,28,31.36,1.4,8,0.85,trailing_stop (time_exit day 8),0,0,0,0
+2026-02-10,2026-02-20,BMY,61.37,60.635,1912.36,37,-15.58,-0.81,9,0.0,manual_sell (error de orden),0,0,0,0
+2026-02-27,2026-03-05,BHP.AX,34.975,32.12,1923.63,55,-164.83,-8.57,4,0.286,"manual_sell (SL borrado, venta manual bajo SL)",0,0,0,0
+2026-02-18,2026-03-05,GE,328.485,328.4608,2232.71,8,32.31,1.45,9,0.75,"trailing_stop (time_exit day 8, breakeven)",0,0,0,0
+2026-02-26,2026-03-06,ROG.SW,366.4,343.0,2018.93,5,-134.36,-6.65,6,0.052,stop_loss (SL CHF 343 ejecutado),19.56,9.8,0,9.76
+2026-02-25,2026-03-09,6861.T,369.37,311.81,2585.60,7,-430.20,-16.64,8,0.0,stop_loss (SL ejecutado Tradegate),27.30,27.30,0,0
+2026-02-18,2026-03-09,PSA,300.195,300.05,2040.42,8,26.19,1.28,11,0.57,"trailing_stop (time_exit day 8, breakeven $300.20)",14.26,4.00,0,10.26
+2026-02-26,2026-03-12,AI.PA,178.18,168.26,1959.98,11,-118.92,-6.05,10,0.01,time_exit_trailing (day 10 venta manual),9.80,9.80,0,0
+2026-02-26,2026-03-12,NESN.SW,82.90,79.485,2181.83,24,-89.09,-4.06,10,0.51,time_exit_trailing (day 10 venta manual),20.53,9.80,0,10.73

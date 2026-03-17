@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dragon Comecocos - 龍</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
+    overflow: hidden;
+}
+
+#game-wrapper {
+    position: relative;
+    border: 3px solid #ff00ff;
+    box-shadow: 0 0 20px #ff00ff, 0 0 40px #00ffff, inset 0 0 20px rgba(255,0,255,0.1);
+    border-radius: 8px;
+    background: #000;
+}
+
+canvas {
+    display: block;
+}
+
+/* CRT scanlines */
+#game-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.15) 0px,
+        rgba(0,0,0,0.15) 1px,
+        transparent 1px,
+        transparent 3px
+    );
+    pointer-events: none;
+    border-radius: 8px;
+}
+
+#overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#overlay.active { pointer-events: all; }
+
+.neon-text {
+    color: #00ffff;
+    text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 40px #00ffff;
+}
+
+.neon-pink {
+    color: #ff00ff;
+    text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 40px #ff00ff;
+}
+
+.neon-yellow {
+    color: #ffff00;
+    text-shadow: 0 0 10px #ffff00, 0 0 20px #ffff00;
+}
+
+#title-screen {
+    text-align: center;
+    display: none;
+}
+
+#title-screen.visible { display: block; }
+
+#title-screen h1 {
+    font-size: 22px;
+    margin-bottom: 10px;
+    animation: flicker 2s infinite alternate;
+}
+
+#title-screen h2 {
+    font-size: 11px;
+    margin-bottom: 30px;
+}
+
+#title-screen .subtitle {
+    font-size: 9px;
+    margin-bottom: 40px;
+    color: #ff00ff;
+    text-shadow: 0 0 10px #ff00ff;
+}
+
+#title-screen .start-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    color: #ffff00;
+    background: none;
+    border: 2px solid #ffff00;
+    padding: 12px 30px;
+    cursor: pointer;
+    text-shadow: 0 0 10px #ffff00;
+    box-shadow: 0 0 10px #ffff00;
+    animation: pulse 1.5s infinite;
+    pointer-events: all;
+}
+
+#title-screen .start-btn:hover {
+    background: rgba(255,255,0,0.1);
+}
+
+#game-over-screen {
+    text-align: center;
+    display: none;
+}
+
+#game-over-screen.visible { display: block; }
+
+#game-over-screen h1 {
+    font-size: 20px;
+    margin-bottom: 20px;
+}
+
+#game-over-screen .score-display {
+    font-size: 14px;
+    margin-bottom: 30px;
+}
+
+#game-over-screen .restart-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    color: #00ffff;
+    background: none;
+    border: 2px solid #00ffff;
+    padding: 10px 24px;
+    cursor: pointer;
+    text-shadow: 0 0 10px #00ffff;
+    box-shadow: 0 0 10px #00ffff;
+    pointer-events: all;
+}
+
+#win-screen {
+    text-align: center;
+    display: none;
+}
+#win-screen.visible { display: block; }
+#win-screen h1 { font-size: 18px; margin-bottom: 15px; }
+#win-screen .score-display { font-size: 12px; margin-bottom: 25px; }
+
+#hud {
+    position: absolute;
+    top: 5px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+#pause-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 16px;
+    display: none;
+    z-index: 15;
+}
+
+#pause-text.visible { display: block; }
+
+@keyframes flicker {
+    0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+    20%, 24%, 55% { opacity: 0.6; }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+#level-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 16px;
+    display: none;
+    z-index: 15;
+}
+#level-text.visible { display: block; }
+
+#mobile-controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    z-index: 20;
+}
+
+@media (max-width: 600px) {
+    #mobile-controls { display: block; }
+}
+
+.d-pad {
+    display: grid;
+    grid-template-columns: 50px 50px 50px;
+    grid-template-rows: 50px 50px 50px;
+    gap: 4px;
+}
+
+.d-pad button {
+    font-size: 20px;
+    background: rgba(255,0,255,0.2);
+    border: 1px solid #ff00ff;
+    color: #ff00ff;
+    border-radius: 6px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.d-pad button:active { background: rgba(255,0,255,0.5); }
+.d-pad .empty { visibility: hidden; }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="hud">
+        <span id="score-display" class="neon-yellow">SCORE: 0</span>
+        <span id="lives-display" class="neon-pink">龍 龍 龍</span>
+        <span id="level-display" class="neon-text">LVL 1</span>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="overlay" class="active">
+        <div id="title-screen" class="visible">
+            <h1 class="neon-text">DRAGON</h1>
+            <h2 class="neon-pink">COMECOCOS</h2>
+            <div class="subtitle">龍 — AÑO DEL DRAGÓN — 龍</div>
+            <button class="start-btn" onclick="startGame()">JUGAR</button>
+            <div style="margin-top:20px;font-size:7px;" class="neon-text">FLECHAS = MOVER &nbsp; P = PAUSA</div>
+        </div>
+        <div id="game-over-screen">
+            <h1 class="neon-pink">GAME OVER</h1>
+            <div class="score-display neon-yellow" id="final-score">SCORE: 0</div>
+            <button class="restart-btn" onclick="startGame()">REINICIAR</button>
+        </div>
+        <div id="win-screen">
+            <h1 class="neon-text">¡NIVEL COMPLETADO!</h1>
+            <div class="score-display neon-yellow" id="win-score">SCORE: 0</div>
+        </div>
+    </div>
+    <div id="pause-text" class="neon-pink">PAUSA</div>
+    <div id="level-text" class="neon-text">NIVEL 1</div>
+</div>
+
+<div id="mobile-controls">
+    <div class="d-pad">
+        <button class="empty"></button>
+        <button ontouchstart="setDir(0,-1);event.preventDefault()">▲</button>
+        <button class="empty"></button>
+        <button ontouchstart="setDir(-1,0);event.preventDefault()">◄</button>
+        <button class="empty"></button>
+        <button ontouchstart="setDir(1,0);event.preventDefault()">►</button>
+        <button class="empty"></button>
+        <button ontouchstart="setDir(0,1);event.preventDefault()">▼</button>
+        <button class="empty"></button>
+    </div>
+</div>
+
+<script>
+// ============================================================
+//  DRAGON COMECOCOS - Pac-Man con Dragones Chinos estilo 80s
+// ============================================================
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- Configuración ---
+const TILE = 24;
+const COLS = 21;
+const ROWS = 23;
+const HUD_OFFSET = 24;
+
+canvas.width = COLS * TILE;
+canvas.height = ROWS * TILE + HUD_OFFSET;
+
+// --- Mapa (0=vacío, 1=muro, 2=perla, 3=power-up, 4=puerta fantasmas) ---
+const MAP_TEMPLATE = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+    [1,3,1,1,2,1,1,1,2,1,1,1,2,1,1,1,2,1,1,3,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,1,1,2,1,2,1,1,1,1,1,1,1,2,1,2,1,1,2,1],
+    [1,2,2,2,2,1,2,2,2,2,1,2,2,2,2,1,2,2,2,2,1],
+    [1,1,1,1,2,1,1,1,0,1,1,1,0,1,1,1,2,1,1,1,1],
+    [0,0,0,1,2,1,0,0,0,0,0,0,0,0,0,1,2,1,0,0,0],
+    [1,1,1,1,2,1,0,1,1,4,4,4,1,1,0,1,2,1,1,1,1],
+    [0,0,0,0,2,0,0,1,0,0,0,0,0,1,0,0,2,0,0,0,0],
+    [1,1,1,1,2,1,0,1,0,0,0,0,0,1,0,1,2,1,1,1,1],
+    [0,0,0,1,2,1,0,1,1,1,1,1,1,1,0,1,2,1,0,0,0],
+    [1,1,1,1,2,1,0,0,0,0,0,0,0,0,0,1,2,1,1,1,1],
+    [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+    [1,2,1,1,2,1,1,1,2,1,1,1,2,1,1,1,2,1,1,2,1],
+    [1,3,2,1,2,2,2,2,2,2,0,2,2,2,2,2,2,1,2,3,1],
+    [1,1,2,1,2,1,2,1,1,1,1,1,1,1,2,1,2,1,2,1,1],
+    [1,2,2,2,2,1,2,2,2,2,1,2,2,2,2,1,2,2,2,2,1],
+    [1,2,1,1,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+let map = [];
+let score = 0;
+let lives = 3;
+let level = 1;
+let gameState = 'title'; // title, playing, paused, gameover, win, levelup
+let totalPellets = 0;
+let pelletsEaten = 0;
+let powerMode = false;
+let powerTimer = 0;
+const POWER_DURATION = 360; // frames (~6s)
+let ghostEatCombo = 0;
+let animFrame = 0;
+
+// --- Audio (Web Audio API) ---
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playSound(type) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+
+    switch(type) {
+        case 'eat':
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.linearRampToValueAtTime(900, now + 0.05);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.08);
+            osc.start(now);
+            osc.stop(now + 0.08);
+            break;
+        case 'power':
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.linearRampToValueAtTime(800, now + 0.3);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.4);
+            osc.start(now);
+            osc.stop(now + 0.4);
+            break;
+        case 'die':
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(500, now);
+            osc.frequency.linearRampToValueAtTime(100, now + 0.5);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.6);
+            osc.start(now);
+            osc.stop(now + 0.6);
+            break;
+        case 'ghost':
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.linearRampToValueAtTime(1200, now + 0.15);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.2);
+            osc.start(now);
+            osc.stop(now + 0.2);
+            break;
+    }
+}
+
+// --- Jugador (Dragón) ---
+const player = {
+    x: 10, y: 15, // posición en tiles
+    dx: 0, dy: 0, // dirección actual
+    nextDx: 0, nextDy: 0, // dirección solicitada
+    moving: false,
+    mouthOpen: 0, // animación boca
+    bodyTrail: [], // para cuerpo serpentino
+    speed: 1,
+    px: 10 * TILE, py: 15 * TILE + HUD_OFFSET, // posición pixel
+};
+
+function resetPlayer() {
+    player.x = 10;
+    player.y = 15;
+    player.dx = 0;
+    player.dy = 0;
+    player.nextDx = 0;
+    player.nextDy = 0;
+    player.moving = false;
+    player.px = player.x * TILE;
+    player.py = player.y * TILE + HUD_OFFSET;
+    player.bodyTrail = [];
+    for (let i = 0; i < 6; i++) {
+        player.bodyTrail.push({ x: player.px, y: player.py });
+    }
+}
+
+// --- Enemigos (Dragones Fantasma) ---
+const GHOST_COLORS = ['#ff0000', '#ffb8ff', '#00ffff', '#ffb852'];
+const GHOST_NAMES = ['Lóng', 'Fèng', 'Qīng', 'Huáng'];
+let ghosts = [];
+
+function createGhost(i) {
+    const homeX = 9 + (i % 3);
+    const homeY = 9 + Math.floor(i / 3);
+    return {
+        x: homeX, y: homeY,
+        px: homeX * TILE, py: homeY * TILE + HUD_OFFSET,
+        dx: 0, dy: 0,
+        color: GHOST_COLORS[i],
+        name: GHOST_NAMES[i],
+        mode: 'scatter', // scatter, chase, frightened, eaten
+        speed: 0.8 + level * 0.05,
+        scatterTarget: [{x:1,y:1},{x:19,y:1},{x:1,y:19},{x:19,y:19}][i],
+        releaseTimer: i * 120, // escalonado
+        bodyTrail: [],
+        inHouse: true,
+    };
+}
+
+function resetGhosts() {
+    ghosts = [];
+    for (let i = 0; i < 4; i++) {
+        const g = createGhost(i);
+        g.bodyTrail = [];
+        for (let j = 0; j < 4; j++) {
+            g.bodyTrail.push({ x: g.px, y: g.py });
+        }
+        ghosts.push(g);
+    }
+}
+
+// --- Mapa ---
+function loadMap() {
+    map = [];
+    totalPellets = 0;
+    pelletsEaten = 0;
+    for (let r = 0; r < MAP_TEMPLATE.length; r++) {
+        map[r] = [];
+        for (let c = 0; c < MAP_TEMPLATE[0].length; c++) {
+            map[r][c] = MAP_TEMPLATE[r][c];
+            if (map[r][c] === 2 || map[r][c] === 3) totalPellets++;
+        }
+    }
+}
+
+function isWall(col, row) {
+    if (row < 0 || row >= map.length) return true;
+    // túnel lateral
+    if (col < 0 || col >= COLS) return false;
+    return map[row][col] === 1;
+}
+
+function canMove(col, row) {
+    if (row < 0 || row >= map.length) return false;
+    if (col < 0 || col >= COLS) return true; // túnel
+    return map[row][col] !== 1;
+}
+
+// --- Dibujar mapa ---
+function drawMap() {
+    for (let r = 0; r < map.length; r++) {
+        for (let c = 0; c < COLS; c++) {
+            const x = c * TILE;
+            const y = r * TILE + HUD_OFFSET;
+            const cell = map[r][c];
+
+            if (cell === 1) {
+                // Muro con gradiente neón
+                const grad = ctx.createLinearGradient(x, y, x + TILE, y + TILE);
+                grad.addColorStop(0, '#220044');
+                grad.addColorStop(0.5, '#440088');
+                grad.addColorStop(1, '#220044');
+                ctx.fillStyle = grad;
+                ctx.fillRect(x + 1, y + 1, TILE - 2, TILE - 2);
+
+                // Bordes brillantes
+                ctx.strokeStyle = '#8800ff';
+                ctx.lineWidth = 1;
+
+                // Solo dibujar bordes donde hay espacio
+                if (r > 0 && map[r-1][c] !== 1) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + TILE, y); ctx.stroke(); }
+                if (r < map.length-1 && map[r+1][c] !== 1) { ctx.beginPath(); ctx.moveTo(x, y + TILE); ctx.lineTo(x + TILE, y + TILE); ctx.stroke(); }
+                if (c > 0 && map[r][c-1] !== 1) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + TILE); ctx.stroke(); }
+                if (c < COLS-1 && map[r][c+1] !== 1) { ctx.beginPath(); ctx.moveTo(x + TILE, y); ctx.lineTo(x + TILE, y + TILE); ctx.stroke(); }
+            } else if (cell === 2) {
+                // Perla de dragón
+                const pulse = Math.sin(animFrame * 0.1 + c + r) * 0.3 + 0.7;
+                ctx.fillStyle = `rgba(255, 200, 100, ${pulse})`;
+                ctx.beginPath();
+                ctx.arc(x + TILE/2, y + TILE/2, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = `rgba(255, 255, 200, ${pulse * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(x + TILE/2 - 1, y + TILE/2 - 1, 1, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (cell === 3) {
+                // Power-up: Perla dorada grande
+                const pulse = Math.sin(animFrame * 0.15) * 0.4 + 0.6;
+                const glow = ctx.createRadialGradient(x + TILE/2, y + TILE/2, 2, x + TILE/2, y + TILE/2, 10);
+                glow.addColorStop(0, `rgba(255, 215, 0, ${pulse})`);
+                glow.addColorStop(0.5, `rgba(255, 140, 0, ${pulse * 0.6})`);
+                glow.addColorStop(1, 'rgba(255, 100, 0, 0)');
+                ctx.fillStyle = glow;
+                ctx.fillRect(x, y, TILE, TILE);
+                ctx.fillStyle = `rgba(255, 223, 100, ${pulse})`;
+                ctx.beginPath();
+                ctx.arc(x + TILE/2, y + TILE/2, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = `rgba(255, 255, 220, ${pulse * 0.7})`;
+                ctx.beginPath();
+                ctx.arc(x + TILE/2 - 2, y + TILE/2 - 2, 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (cell === 4) {
+                // Puerta de la casa de fantasmas
+                ctx.fillStyle = '#ff00ff';
+                ctx.fillRect(x, y + TILE/2 - 2, TILE, 4);
+            }
+        }
+    }
+}
+
+// --- Dibujar Dragón Jugador ---
+function drawDragon(px, py, dx, dy, trail) {
+    const cx = px + TILE/2;
+    const cy = py + TILE/2;
+
+    // Cuerpo serpentino (cola)
+    if (trail.length > 1) {
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        for (let i = trail.length - 1; i >= 1; i--) {
+            const alpha = 0.3 + 0.5 * (i / trail.length);
+            const width = 4 + 4 * (i / trail.length);
+            const wave = Math.sin(animFrame * 0.2 + i * 0.8) * 2;
+            ctx.strokeStyle = `rgba(255, 180, 0, ${alpha})`;
+            ctx.lineWidth = width;
+            ctx.beginPath();
+            const tx = trail[i].x + TILE/2 + (dy !== 0 ? wave : 0);
+            const ty = trail[i].y + TILE/2 + (dx !== 0 ? wave : 0);
+            const tx2 = trail[i-1].x + TILE/2 + (dy !== 0 ? -wave : 0);
+            const ty2 = trail[i-1].y + TILE/2 + (dx !== 0 ? -wave : 0);
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(tx2, ty2);
+            ctx.stroke();
+        }
+        // Escamas en la cola
+        for (let i = trail.length - 1; i >= 2; i -= 2) {
+            const alpha = 0.2 + 0.3 * (i / trail.length);
+            ctx.fillStyle = `rgba(255, 50, 0, ${alpha})`;
+            const tx = trail[i].x + TILE/2;
+            const ty = trail[i].y + TILE/2;
+            ctx.beginPath();
+            ctx.arc(tx, ty, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Cuerpo principal (cabeza)
+    const headGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, TILE/2);
+    headGrad.addColorStop(0, '#ffdd00');
+    headGrad.addColorStop(0.6, '#ff8800');
+    headGrad.addColorStop(1, '#cc4400');
+    ctx.fillStyle = headGrad;
+
+    // Boca abierta/cerrada
+    const mouthAngle = (Math.sin(animFrame * 0.4) * 0.3 + 0.3);
+    let startAngle = 0;
+    if (dx === 1) startAngle = mouthAngle;
+    else if (dx === -1) startAngle = Math.PI + mouthAngle;
+    else if (dy === -1) startAngle = -Math.PI/2 + mouthAngle;
+    else if (dy === 1) startAngle = Math.PI/2 + mouthAngle;
+    else startAngle = mouthAngle;
+
+    const endAngle = startAngle + (Math.PI * 2 - mouthAngle * 2);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, TILE/2 - 2, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fill();
+
+    // Cuernos
+    const hornLen = 7;
+    let h1x, h1y, h2x, h2y;
+    if (dx === 1 || (dx === 0 && dy === 0)) {
+        h1x = cx + 3; h1y = cy - TILE/2 + 2;
+        h2x = cx - 3; h2y = cy - TILE/2 + 2;
+    } else if (dx === -1) {
+        h1x = cx + 3; h1y = cy - TILE/2 + 2;
+        h2x = cx - 3; h2y = cy - TILE/2 + 2;
+    } else if (dy === -1) {
+        h1x = cx - TILE/2 + 2; h1y = cy + 3;
+        h2x = cx - TILE/2 + 2; h2y = cy - 3;
+    } else {
+        h1x = cx + TILE/2 - 2; h1y = cy + 3;
+        h2x = cx + TILE/2 - 2; h2y = cy - 3;
+    }
+    ctx.fillStyle = '#ff4400';
+    ctx.beginPath();
+    ctx.moveTo(h1x - 2, h1y);
+    ctx.lineTo(h1x, h1y - hornLen);
+    ctx.lineTo(h1x + 2, h1y);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(h2x - 2, h2y);
+    ctx.lineTo(h2x, h2y - hornLen);
+    ctx.lineTo(h2x + 2, h2y);
+    ctx.fill();
+
+    // Ojos
+    let ex1, ey1, ex2, ey2;
+    if (dx === 1 || (dx === 0 && dy === 0)) {
+        ex1 = cx + 3; ey1 = cy - 3;
+        ex2 = cx + 3; ey2 = cy + 3;
+    } else if (dx === -1) {
+        ex1 = cx - 3; ey1 = cy - 3;
+        ex2 = cx - 3; ey2 = cy + 3;
+    } else if (dy === -1) {
+        ex1 = cx - 3; ey1 = cy - 3;
+        ex2 = cx + 3; ey2 = cy - 3;
+    } else {
+        ex1 = cx - 3; ey1 = cy + 3;
+        ex2 = cx + 3; ey2 = cy + 3;
+    }
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(ex1, ey1, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(ex2, ey2, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ff0000';
+    ctx.beginPath();
+    ctx.arc(ex1 + dx, ey1 + dy, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(ex2 + dx, ey2 + dy, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bigotes (whiskers)
+    ctx.strokeStyle = '#ffee88';
+    ctx.lineWidth = 1;
+    const whiskerLen = 8;
+    if (dx >= 0 && dy === 0) {
+        // Derecha o parado
+        ctx.beginPath(); ctx.moveTo(cx + 6, cy - 2); ctx.lineTo(cx + 6 + whiskerLen, cy - 5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx + 6, cy + 2); ctx.lineTo(cx + 6 + whiskerLen, cy + 5); ctx.stroke();
+    } else if (dx === -1) {
+        ctx.beginPath(); ctx.moveTo(cx - 6, cy - 2); ctx.lineTo(cx - 6 - whiskerLen, cy - 5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx - 6, cy + 2); ctx.lineTo(cx - 6 - whiskerLen, cy + 5); ctx.stroke();
+    } else if (dy === -1) {
+        ctx.beginPath(); ctx.moveTo(cx - 2, cy - 6); ctx.lineTo(cx - 5, cy - 6 - whiskerLen); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx + 2, cy - 6); ctx.lineTo(cx + 5, cy - 6 - whiskerLen); ctx.stroke();
+    } else {
+        ctx.beginPath(); ctx.moveTo(cx - 2, cy + 6); ctx.lineTo(cx - 5, cy + 6 + whiskerLen); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx + 2, cy + 6); ctx.lineTo(cx + 5, cy + 6 + whiskerLen); ctx.stroke();
+    }
+}
+
+// --- Dibujar Fantasma Dragón ---
+function drawGhostDragon(ghost) {
+    const cx = ghost.px + TILE/2;
+    const cy = ghost.py + TILE/2;
+    const isFrightened = ghost.mode === 'frightened';
+    const isEaten = ghost.mode === 'eaten';
+
+    if (isEaten) {
+        // Solo ojos volviendo a casa
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(cx - 3, cy - 2, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 3, cy - 2, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(cx - 3 + ghost.dx, cy - 2 + ghost.dy, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 3 + ghost.dx, cy - 2 + ghost.dy, 1.5, 0, Math.PI * 2); ctx.fill();
+        return;
+    }
+
+    // Cola del fantasma dragón
+    if (ghost.bodyTrail.length > 1) {
+        for (let i = ghost.bodyTrail.length - 1; i >= 1; i--) {
+            const alpha = (isFrightened ? 0.2 : 0.3) + 0.3 * (i / ghost.bodyTrail.length);
+            const width = 3 + 3 * (i / ghost.bodyTrail.length);
+            const wave = Math.sin(animFrame * 0.25 + i) * 2;
+            const color = isFrightened ? `rgba(50, 50, 255, ${alpha})` : ghost.color;
+            ctx.strokeStyle = isFrightened ? `rgba(50, 50, 255, ${alpha})` : hexToRgba(ghost.color, alpha);
+            ctx.lineWidth = width;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(ghost.bodyTrail[i].x + TILE/2, ghost.bodyTrail[i].y + TILE/2 + wave);
+            ctx.lineTo(ghost.bodyTrail[i-1].x + TILE/2, ghost.bodyTrail[i-1].y + TILE/2 - wave);
+            ctx.stroke();
+        }
+    }
+
+    // Cuerpo principal fantasma
+    const baseColor = isFrightened ? '#3333ff' : ghost.color;
+    const alpha = 0.7 + Math.sin(animFrame * 0.1) * 0.15;
+    ctx.fillStyle = isFrightened ? `rgba(50, 50, 255, ${alpha})` : hexToRgba(ghost.color, alpha);
+
+    // Forma fantasmal con ondas en la base
+    ctx.beginPath();
+    ctx.arc(cx, cy - 2, TILE/2 - 2, Math.PI, 0);
+    const baseY = cy + TILE/2 - 2;
+    const waves = 4;
+    const waveWidth = (TILE - 4) / waves;
+    ctx.lineTo(cx + TILE/2 - 2, baseY);
+    for (let i = waves; i > 0; i--) {
+        const wx = cx + TILE/2 - 2 - (waves - i) * waveWidth - waveWidth/2;
+        const wy = baseY + Math.sin(animFrame * 0.3 + i) * 3;
+        ctx.quadraticCurveTo(cx + TILE/2 - 2 - (waves - i) * waveWidth, wy, wx, baseY);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Glow
+    ctx.shadowColor = baseColor;
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Ojos
+    if (isFrightened) {
+        // Ojos asustados
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(cx - 3, cy - 3, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 3, cy - 3, 2.5, 0, Math.PI * 2); ctx.fill();
+        // Boca zigzag
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx - 4, cy + 3);
+        ctx.lineTo(cx - 2, cy + 1);
+        ctx.lineTo(cx, cy + 3);
+        ctx.lineTo(cx + 2, cy + 1);
+        ctx.lineTo(cx + 4, cy + 3);
+        ctx.stroke();
+
+        // Parpadeo cuando queda poco tiempo
+        if (powerTimer < 120 && Math.floor(animFrame / 10) % 2 === 0) {
+            ctx.fillStyle = `rgba(255, 255, 255, 0.3)`;
+            ctx.beginPath();
+            ctx.arc(cx, cy, TILE/2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    } else {
+        // Ojos normales
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(cx - 3, cy - 3, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 3, cy - 3, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#220066';
+        ctx.beginPath(); ctx.arc(cx - 3 + ghost.dx * 1.5, cy - 3 + ghost.dy * 1.5, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 3 + ghost.dx * 1.5, cy - 3 + ghost.dy * 1.5, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Mini cuernos
+    if (!isFrightened) {
+        ctx.fillStyle = baseColor;
+        ctx.beginPath();
+        ctx.moveTo(cx - 5, cy - TILE/2 + 3);
+        ctx.lineTo(cx - 4, cy - TILE/2 - 3);
+        ctx.lineTo(cx - 3, cy - TILE/2 + 3);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(cx + 3, cy - TILE/2 + 3);
+        ctx.lineTo(cx + 4, cy - TILE/2 - 3);
+        ctx.lineTo(cx + 5, cy - TILE/2 + 3);
+        ctx.fill();
+    }
+}
+
+function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// --- Movimiento del jugador ---
+// Sistema de movimiento sub-pixel fluido con pre-giro y cornering
+const PLAYER_SPEED = 2; // px por frame (equilibrado: ágil pero controlable)
+const CORNER_TOLERANCE = 8; // px de tolerancia para girar antes de llegar al centro
+
+function tileCenter(tileVal, isY) {
+    return tileVal * TILE + (isY ? HUD_OFFSET : 0);
+}
+
+function updatePlayer() {
+    const speed = PLAYER_SPEED;
+    const tcx = tileCenter(player.x, false);
+    const tcy = tileCenter(player.y, true);
+    const offX = player.px - tcx;
+    const offY = player.py - tcy;
+    const atCenter = Math.abs(offX) <= speed && Math.abs(offY) <= speed;
+
+    // --- Intentar cambiar de dirección (con cornering) ---
+    if (player.nextDx !== 0 || player.nextDy !== 0) {
+        const stopped = player.dx === 0 && player.dy === 0;
+        // Giro inverso inmediato (180°): siempre permitido
+        if (!stopped && player.nextDx === -player.dx && player.nextDy === -player.dy) {
+            player.dx = player.nextDx;
+            player.dy = player.nextDy;
+            player.nextDx = 0;
+            player.nextDy = 0;
+        } else {
+            // Parado o giro perpendicular: comprobar si estamos lo bastante cerca del centro
+            const closeEnough = stopped || (Math.abs(offX) <= CORNER_TOLERANCE && Math.abs(offY) <= CORNER_TOLERANCE);
+            if (closeEnough) {
+                const testCol = player.x + player.nextDx;
+                const testRow = player.y + player.nextDy;
+                if (canMove(testCol, testRow)) {
+                    player.px = tcx;
+                    player.py = tcy;
+                    player.dx = player.nextDx;
+                    player.dy = player.nextDy;
+                    player.nextDx = 0;
+                    player.nextDy = 0;
+                }
+            }
+        }
+    }
+
+    if (player.dx === 0 && player.dy === 0) { updateTrail(); return; }
+
+    // --- Mover hacia el centro del tile actual si hay offset perpendicular ---
+    if (player.dx !== 0 && Math.abs(offY) > 1) {
+        player.py += offY > 0 ? -Math.min(speed, offY) : Math.min(speed, -offY);
+        updateTrail();
+        return;
+    }
+    if (player.dy !== 0 && Math.abs(offX) > 1) {
+        player.px += offX > 0 ? -Math.min(speed, offX) : Math.min(speed, -offX);
+        updateTrail();
+        return;
+    }
+
+    // --- Avanzar en la dirección actual ---
+    let newPx = player.px + player.dx * speed;
+    let newPy = player.py + player.dy * speed;
+
+    // Calcular en qué tile estaríamos
+    let newTileX = Math.round(newPx / TILE);
+    let newTileY = Math.round((newPy - HUD_OFFSET) / TILE);
+
+    // Túnel lateral
+    if (newTileX < 0) {
+        newTileX = COLS - 1;
+        newPx = newTileX * TILE;
+        player.px = newPx;
+        player.x = newTileX;
+        player.py = tcy;
+        updateTrail();
+        return;
+    } else if (newTileX >= COLS) {
+        newTileX = 0;
+        newPx = 0;
+        player.px = newPx;
+        player.x = newTileX;
+        player.py = tcy;
+        updateTrail();
+        return;
+    }
+
+    // Comprobar si el siguiente tile es muro
+    const nextTileX = player.x + player.dx;
+    const nextTileY = player.y + player.dy;
+    const nextTileCenter = player.dx !== 0
+        ? tileCenter(nextTileX, false)
+        : tileCenter(nextTileY, true);
+
+    if (!canMove(nextTileX, nextTileY)) {
+        // Parar justo en el centro del tile actual (no sobrepasar)
+        if (player.dx === 1 && newPx > tcx) { player.px = tcx; }
+        else if (player.dx === -1 && newPx < tcx) { player.px = tcx; }
+        else if (player.dy === 1 && newPy > tcy) { player.py = tcy; }
+        else if (player.dy === -1 && newPy < tcy) { player.py = tcy; }
+        else { player.px = newPx; player.py = newPy; }
+        // NO resetear dx/dy — mantener dirección para que el input buffered siga funcionando
+        updateTrail();
+        return;
+    }
+
+    // Avanzar
+    player.px = newPx;
+    player.py = newPy;
+
+    // Actualizar tile lógico al cruzar el centro de un nuevo tile
+    const crossedX = Math.round(player.px / TILE);
+    const crossedY = Math.round((player.py - HUD_OFFSET) / TILE);
+    if (crossedX !== player.x || crossedY !== player.y) {
+        if (canMove(crossedX, crossedY)) {
+            player.x = crossedX;
+            player.y = crossedY;
+        }
+    }
+
+    // Comer perla en el tile actual
+    eatPelletAt(player.x, player.y);
+    updateTrail();
+}
+
+function eatPelletAt(col, row) {
+    if (row < 0 || row >= map.length || col < 0 || col >= COLS) return;
+    const cell = map[row][col];
+    if (cell === 2 || cell === 3) {
+        if (cell === 3) {
+            powerMode = true;
+            powerTimer = POWER_DURATION;
+            ghostEatCombo = 0;
+            score += 50;
+            playSound('power');
+            ghosts.forEach(g => {
+                if (g.mode !== 'eaten') g.mode = 'frightened';
+            });
+        } else {
+            score += 10;
+            playSound('eat');
+        }
+        map[row][col] = 0;
+        pelletsEaten++;
+    }
+}
+
+function updateTrail() {
+    player.bodyTrail.unshift({ x: player.px, y: player.py });
+    if (player.bodyTrail.length > 6) player.bodyTrail.pop();
+}
+
+// --- IA de enemigos ---
+function updateGhosts() {
+    const speed = 1.5 + level * 0.15;
+    const frightenedSpeed = 1;
+
+    ghosts.forEach((g, i) => {
+        if (g.releaseTimer > 0) {
+            g.releaseTimer--;
+            // Rebote dentro de la casa
+            g.py += Math.sin(animFrame * 0.1 + i) * 0.5;
+            return;
+        }
+
+        // Salir de la casa
+        if (g.inHouse) {
+            const doorX = 10 * TILE;
+            const doorY = 7 * TILE + HUD_OFFSET; // justo encima de la puerta
+            const exitSpeed = 2;
+
+            // Paso 1: alinear X con la puerta (columna 10)
+            const diffX = doorX - g.px;
+            if (Math.abs(diffX) > exitSpeed) {
+                g.px += diffX > 0 ? exitSpeed : -exitSpeed;
+            } else {
+                // Paso 2: X alineada, subir hacia la puerta
+                g.px = doorX;
+                const diffY = doorY - g.py;
+                if (Math.abs(diffY) > exitSpeed) {
+                    g.py += diffY > 0 ? exitSpeed : -exitSpeed;
+                } else {
+                    // Llegó a la puerta: posicionar y liberar
+                    g.x = 10;
+                    g.y = 7;
+                    g.px = g.x * TILE;
+                    g.py = g.y * TILE + HUD_OFFSET;
+                    g.inHouse = false;
+                    g.dy = -1;
+                    g.dx = 0;
+                }
+            }
+            // Actualizar trail
+            g.bodyTrail.unshift({ x: g.px, y: g.py });
+            if (g.bodyTrail.length > 4) g.bodyTrail.pop();
+            return;
+        }
+
+        const currentSpeed = g.mode === 'frightened' ? frightenedSpeed : (g.mode === 'eaten' ? speed * 1.5 : speed);
+
+        const targetX = g.x * TILE;
+        const targetY = g.y * TILE + HUD_OFFSET;
+
+        // Mover hacia centro del tile
+        if (Math.abs(g.px - targetX) > currentSpeed) {
+            g.px += g.px < targetX ? currentSpeed : -currentSpeed;
+            g.bodyTrail.unshift({ x: g.px, y: g.py });
+            if (g.bodyTrail.length > 4) g.bodyTrail.pop();
+            return;
+        }
+        if (Math.abs(g.py - targetY) > currentSpeed) {
+            g.py += g.py < targetY ? currentSpeed : -currentSpeed;
+            g.bodyTrail.unshift({ x: g.px, y: g.py });
+            if (g.bodyTrail.length > 4) g.bodyTrail.pop();
+            return;
+        }
+
+        g.px = targetX;
+        g.py = targetY;
+
+        // Si fue comido y volvió a casa
+        if (g.mode === 'eaten' && g.y >= 8 && g.y <= 10 && g.x >= 9 && g.x <= 11) {
+            g.mode = 'scatter';
+            g.inHouse = true;
+            g.releaseTimer = 60; // breve pausa antes de volver a salir
+            g.x = 10; g.y = 9;
+            g.px = g.x * TILE; g.py = g.y * TILE + HUD_OFFSET;
+            return;
+        }
+
+        // Determinar objetivo
+        let targetTileX, targetTileY;
+        if (g.mode === 'eaten') {
+            targetTileX = 10; targetTileY = 9;
+        } else if (g.mode === 'frightened') {
+            targetTileX = Math.floor(Math.random() * COLS);
+            targetTileY = Math.floor(Math.random() * map.length);
+        } else if (g.mode === 'chase') {
+            if (i === 0) {
+                // Perseguir directamente
+                targetTileX = player.x; targetTileY = player.y;
+            } else if (i === 1) {
+                // Adelantarse al jugador
+                targetTileX = player.x + player.dx * 4;
+                targetTileY = player.y + player.dy * 4;
+            } else if (i === 2) {
+                // Emboscada
+                targetTileX = player.x + player.dx * 2;
+                targetTileY = player.y + player.dy * 2;
+                const diffX = targetTileX - ghosts[0].x;
+                const diffY = targetTileY - ghosts[0].y;
+                targetTileX += diffX;
+                targetTileY += diffY;
+            } else {
+                // Aleatorio/patrol
+                const dist = Math.abs(g.x - player.x) + Math.abs(g.y - player.y);
+                if (dist < 8) {
+                    targetTileX = g.scatterTarget.x;
+                    targetTileY = g.scatterTarget.y;
+                } else {
+                    targetTileX = player.x;
+                    targetTileY = player.y;
+                }
+            }
+        } else {
+            // Scatter
+            targetTileX = g.scatterTarget.x;
+            targetTileY = g.scatterTarget.y;
+        }
+
+        // Elegir siguiente dirección (no puede dar marcha atrás)
+        const dirs = [
+            { dx: 0, dy: -1 },
+            { dx: 1, dy: 0 },
+            { dx: 0, dy: 1 },
+            { dx: -1, dy: 0 }
+        ];
+
+        let bestDir = null;
+        let bestDist = Infinity;
+
+        for (const d of dirs) {
+            // No retroceder
+            if (d.dx === -g.dx && d.dy === -g.dy && (g.dx !== 0 || g.dy !== 0)) continue;
+
+            let nx = g.x + d.dx;
+            let ny = g.y + d.dy;
+
+            // Túnel
+            if (nx < 0) nx = COLS - 1;
+            else if (nx >= COLS) nx = 0;
+
+            if (!canMove(nx, ny)) continue;
+            // No entrar en la casa (excepto si fue comido)
+            if (g.mode !== 'eaten' && map[ny] && map[ny][nx] === 4) continue;
+
+            const dist = (nx - targetTileX) ** 2 + (ny - targetTileY) ** 2;
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestDir = d;
+            }
+        }
+
+        if (bestDir) {
+            g.dx = bestDir.dx;
+            g.dy = bestDir.dy;
+        } else {
+            // Sin dirección válida: invertir (desatascar)
+            g.dx = -g.dx;
+            g.dy = -g.dy;
+        }
+        {
+            let newX = g.x + g.dx;
+            let newY = g.y + g.dy;
+            if (newX < 0) { newX = COLS - 1; g.px = newX * TILE; }
+            else if (newX >= COLS) { newX = 0; g.px = 0; }
+            if (canMove(newX, newY)) {
+                g.x = newX;
+                g.y = newY;
+            }
+        }
+
+        g.bodyTrail.unshift({ x: g.px, y: g.py });
+        if (g.bodyTrail.length > 4) g.bodyTrail.pop();
+    });
+
+    // Alternar modos chase/scatter
+    const cycleFrame = animFrame % 1200;
+    ghosts.forEach(g => {
+        if (g.mode !== 'frightened' && g.mode !== 'eaten' && !g.inHouse) {
+            g.mode = cycleFrame < 420 ? 'scatter' : 'chase';
+        }
+    });
+}
+
+// --- Colisiones ---
+function checkCollisions() {
+    ghosts.forEach(g => {
+        if (g.inHouse) return;
+        const dist = Math.abs(player.px - g.px) + Math.abs(player.py - g.py);
+        if (dist < TILE * 0.8) {
+            if (g.mode === 'frightened') {
+                // Comer fantasma
+                g.mode = 'eaten';
+                ghostEatCombo++;
+                score += 200 * ghostEatCombo;
+                playSound('ghost');
+            } else if (g.mode !== 'eaten') {
+                // Muerte del jugador
+                playerDie();
+            }
+        }
+    });
+}
+
+function playerDie() {
+    lives--;
+    playSound('die');
+    if (lives <= 0) {
+        gameState = 'gameover';
+        document.getElementById('final-score').textContent = 'PUNTUACIÓN: ' + score;
+        document.getElementById('game-over-screen').classList.add('visible');
+        document.getElementById('overlay').classList.add('active');
+    } else {
+        updateLivesDisplay();
+        resetPlayer();
+        ghosts.forEach((g, i) => {
+            const homeX = 9 + (i % 3);
+            const homeY = 9 + Math.floor(i / 3);
+            g.x = homeX; g.y = homeY;
+            g.px = homeX * TILE; g.py = homeY * TILE + HUD_OFFSET;
+            g.dx = 0; g.dy = 0;
+            g.inHouse = true;
+            g.releaseTimer = i * 90;
+            g.mode = 'scatter';
+            g.bodyTrail = [];
+            for (let j = 0; j < 4; j++) g.bodyTrail.push({ x: g.px, y: g.py });
+        });
+        // Pausa breve
+        gameState = 'paused';
+        setTimeout(() => { if (gameState === 'paused') gameState = 'playing'; }, 1500);
+    }
+}
+
+function updateLivesDisplay() {
+    document.getElementById('lives-display').textContent = '龍 '.repeat(lives).trim();
+}
+
+// --- Siguiente nivel ---
+function checkLevelComplete() {
+    if (pelletsEaten >= totalPellets) {
+        level++;
+        document.getElementById('level-display').textContent = 'LVL ' + level;
+        document.getElementById('level-text').textContent = 'NIVEL ' + level;
+        document.getElementById('level-text').classList.add('visible');
+        gameState = 'levelup';
+        setTimeout(() => {
+            document.getElementById('level-text').classList.remove('visible');
+            loadMap();
+            resetPlayer();
+            resetGhosts();
+            powerMode = false;
+            powerTimer = 0;
+            gameState = 'playing';
+        }, 2000);
+    }
+}
+
+// --- Bucle principal ---
+function gameLoop() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (gameState === 'playing') {
+        animFrame++;
+        updatePlayer();
+        updateGhosts();
+        checkCollisions();
+
+        // Power mode timer
+        if (powerMode) {
+            powerTimer--;
+            if (powerTimer <= 0) {
+                powerMode = false;
+                ghosts.forEach(g => {
+                    if (g.mode === 'frightened') g.mode = 'scatter';
+                });
+            }
+        }
+
+        checkLevelComplete();
+        document.getElementById('score-display').textContent = 'SCORE: ' + score;
+    } else if (gameState === 'paused' || gameState === 'levelup') {
+        animFrame++;
+    }
+
+    // Dibujar siempre
+    drawMap();
+    if (gameState !== 'title' && gameState !== 'gameover') {
+        ghosts.forEach(g => drawGhostDragon(g));
+        drawDragon(player.px, player.py, player.dx, player.dy, player.bodyTrail);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+// --- Controles ---
+document.addEventListener('keydown', (e) => {
+    initAudio();
+    if (gameState !== 'playing') {
+        if (e.key === 'Enter' && (gameState === 'title' || gameState === 'gameover')) {
+            startGame();
+        }
+        if (e.key === 'p' || e.key === 'P') {
+            if (gameState === 'paused') {
+                gameState = 'playing';
+                document.getElementById('pause-text').classList.remove('visible');
+            }
+        }
+        return;
+    }
+
+    switch(e.key) {
+        case 'ArrowUp': case 'w': case 'W':
+            player.nextDx = 0; player.nextDy = -1;
+            e.preventDefault();
+            break;
+        case 'ArrowDown': case 's': case 'S':
+            player.nextDx = 0; player.nextDy = 1;
+            e.preventDefault();
+            break;
+        case 'ArrowLeft': case 'a': case 'A':
+            player.nextDx = -1; player.nextDy = 0;
+            e.preventDefault();
+            break;
+        case 'ArrowRight': case 'd': case 'D':
+            player.nextDx = 1; player.nextDy = 0;
+            e.preventDefault();
+            break;
+        case 'p': case 'P':
+            gameState = 'paused';
+            document.getElementById('pause-text').classList.add('visible');
+            break;
+    }
+});
+
+function setDir(dx, dy) {
+    initAudio();
+    if (gameState === 'playing') {
+        player.nextDx = dx;
+        player.nextDy = dy;
+    }
+}
+
+// Swipe táctil
+let touchStartX = 0, touchStartY = 0;
+document.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    initAudio();
+});
+document.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) < 30 && Math.abs(dy) < 30) return;
+    if (Math.abs(dx) > Math.abs(dy)) {
+        setDir(dx > 0 ? 1 : -1, 0);
+    } else {
+        setDir(0, dy > 0 ? 1 : -1);
+    }
+});
+
+// --- Iniciar juego ---
+function startGame() {
+    initAudio();
+    score = 0;
+    lives = 3;
+    level = 1;
+    powerMode = false;
+    powerTimer = 0;
+    animFrame = 0;
+
+    loadMap();
+    resetPlayer();
+    resetGhosts();
+    updateLivesDisplay();
+
+    document.getElementById('score-display').textContent = 'SCORE: 0';
+    document.getElementById('level-display').textContent = 'LVL 1';
+    document.getElementById('title-screen').classList.remove('visible');
+    document.getElementById('game-over-screen').classList.remove('visible');
+    document.getElementById('win-screen').classList.remove('visible');
+    document.getElementById('overlay').classList.remove('active');
+    document.getElementById('pause-text').classList.remove('visible');
+
+    gameState = 'playing';
+}
+
+// --- Arrancar ---
+loadMap();
+gameLoop();
+</script>
+</body>
+</html>
