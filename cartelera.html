@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cartelera Madrid — 20 marzo 2026</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --card: #1a1a2e;
+    --accent: #e94560;
+    --text: #eee;
+    --muted: #888;
+    --border: #2a2a3e;
+    --gold: #f5c518;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    padding: 1.5rem 2rem;
+    border-bottom: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px; }
+  header h1 span { color: var(--accent); }
+  .date-label { color: var(--muted); font-size: 0.95rem; }
+  .controls { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+  .controls select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.9rem;
+  }
+  .tabs { display: flex; gap: 0; margin: 1.5rem 2rem 0; }
+  .tab {
+    padding: 0.6rem 1.4rem; background: var(--card); border: 1px solid var(--border);
+    border-bottom: none; cursor: pointer; font-size: 0.9rem; color: var(--muted);
+    border-radius: 8px 8px 0 0; transition: all 0.2s;
+  }
+  .tab.active { background: var(--bg); color: var(--text); border-color: var(--accent); border-bottom-color: var(--bg); }
+  .content { padding: 1.5rem 2rem; }
+  .stats { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .stat-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.8rem 1.2rem; min-width: 120px;
+  }
+  .stat-box .num { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+  .stat-box .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .movies-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.2rem; }
+  .movie-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; transition: transform 0.2s, border-color 0.2s;
+  }
+  .movie-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .movie-card .top { padding: 1.2rem; }
+  .movie-card .title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.4rem; line-height: 1.3; }
+  .movie-card .meta { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+  .movie-card .synopsis { font-size: 0.8rem; color: #aaa; margin-top: 0.5rem; line-height: 1.4; }
+  .movie-card .rating {
+    display: inline-flex; align-items: center; gap: 0.25rem; color: var(--gold);
+    font-weight: 600; font-size: 0.95rem; margin-top: 0.4rem;
+  }
+  .movie-card .showtimes-section { border-top: 1px solid var(--border); padding: 0.8rem 1.2rem; }
+  .movie-card .cinema-group { margin-bottom: 0.6rem; }
+  .movie-card .cinema-group:last-child { margin-bottom: 0; }
+  .movie-card .cinema-name {
+    font-size: 0.75rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.3px; margin-bottom: 0.3rem;
+  }
+  .time-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .chip {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 0.2rem 0.5rem; font-size: 0.78rem; white-space: nowrap;
+  }
+  .chip.vose { border-color: #4caf50; color: #81c784; }
+  .chip.imax { border-color: #2196f3; color: #64b5f6; }
+  .chip.atmos { border-color: #9c27b0; color: #ce93d8; }
+  .chip.isense { border-color: #00bcd4; color: #4dd0e1; }
+  .cinemas-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+  .cinema-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem 1.2rem;
+  }
+  .cinema-card h3 { font-size: 1rem; margin-bottom: 0.3rem; }
+  .cinema-card .ext-id { font-size: 0.75rem; color: var(--accent); margin-top: 0.2rem; }
+  .empty { text-align: center; padding: 3rem; color: var(--muted); }
+  .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filter-btn {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    padding: 0.35rem 0.9rem; color: var(--muted); cursor: pointer; font-size: 0.8rem;
+    transition: all 0.2s;
+  }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (max-width: 600px) {
+    header { padding: 1rem; }
+    .content { padding: 1rem; }
+    .movies-grid { grid-template-columns: 1fr; }
+    .tabs { margin: 1rem 1rem 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1><span>Guia</span>Madrid</h1>
+    <div class="date-label">Viernes 20 de marzo de 2026</div>
+  </div>
+  <div class="controls">
+    <select id="cinemaFilter">
+      <option value="">Todos los cines</option>
+    </select>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="peliculas">Peliculas</div>
+  <div class="tab" data-tab="cines">Cines</div>
+</div>
+
+<div class="content">
+  <div id="peliculas-tab">
+    <div class="stats" id="stats"></div>
+    <div class="filter-bar" id="lang-filters"></div>
+    <div id="movies-container" class="movies-grid"></div>
+  </div>
+  <div id="cines-tab" style="display:none">
+    <div id="cinemas-container"></div>
+  </div>
+</div>
+
+<script>
+// ====== DATOS REALES EMBEBIDOS — Cartelera Madrid 20 marzo 2026 ======
+const DATA = {"date":"2026-03-20","showtimes":[{"id":60,"cinema":"Cine Doré (Filmoteca)","cinema_id":"G02GQ","movie":"Kelly Reichardt: Carta blanca","director":"Kelly Reichardt","genre":"Drama, Ciclo","duration_min":null,"poster_url":"","rating":null,"time":"20:30","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":59,"cinema":"Cine Doré (Filmoteca)","cinema_id":"G02GQ","movie":"Lillian Hellman: Ficción, memoria y compromiso","director":"","genre":"Documental, Ciclo","duration_min":null,"poster_url":"","rating":null,"time":"17:30","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":35,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"15:30","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":36,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"17:50","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":37,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"20:10","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":38,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"22:30","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":44,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Greenland 2: El regreso","director":"Ric Roman Waugh","genre":"Acción, Ciencia ficción","duration_min":97,"poster_url":"","rating":3.1,"time":"16:15","date":"2026-03-20","language":"Castellano","format":"iSense"},{"id":45,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Greenland 2: El regreso","director":"Ric Roman Waugh","genre":"Acción, Ciencia ficción","duration_min":97,"poster_url":"","rating":3.1,"time":"20:30","date":"2026-03-20","language":"Castellano","format":"iSense"},{"id":42,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"time":"15:30","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":43,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"time":"17:45","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":47,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"La novia","director":"Maggie Gyllenhaal","genre":"Terror, Drama","duration_min":125,"poster_url":"","rating":3.6,"time":"19:30","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":48,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"La novia","director":"Maggie Gyllenhaal","genre":"Terror, Drama","duration_min":125,"poster_url":"","rating":3.6,"time":"22:15","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":39,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"time":"16:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":40,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"time":"18:30","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":41,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"time":"21:00","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":46,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Torrente Presidente","director":"Santiago Segura","genre":"Comedia","duration_min":90,"poster_url":"","rating":2.5,"time":"18:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":49,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Whistle: El silbido del mal","director":"Corin Hardy","genre":"Terror","duration_min":96,"poster_url":"","rating":3.0,"time":"16:30","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":50,"cinema":"Cinesa Méndez Álvaro","cinema_id":"E0247","movie":"Whistle: El silbido del mal","director":"Corin Hardy","genre":"Terror","duration_min":96,"poster_url":"","rating":3.0,"time":"20:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":22,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"16:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":23,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"18:30","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":24,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"21:00","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":32,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Elegir mi vida","director":"Amélie Bonnin","genre":"Drama","duration_min":98,"poster_url":"","rating":3.5,"time":"17:30","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":33,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Elegir mi vida","director":"Amélie Bonnin","genre":"Drama","duration_min":98,"poster_url":"","rating":3.5,"time":"20:00","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":30,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Greenland 2: El regreso","director":"Ric Roman Waugh","genre":"Acción, Ciencia ficción","duration_min":97,"poster_url":"","rating":3.1,"time":"16:30","date":"2026-03-20","language":"Castellano","format":"IMAX"},{"id":31,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Greenland 2: El regreso","director":"Ric Roman Waugh","genre":"Acción, Ciencia ficción","duration_min":97,"poster_url":"","rating":3.1,"time":"21:30","date":"2026-03-20","language":"Castellano","format":"IMAX"},{"id":27,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"time":"16:30","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":28,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"time":"19:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":34,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Power to the People","director":"","genre":"Documental, Música","duration_min":110,"poster_url":"","rating":3.9,"time":"19:30","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":25,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"time":"19:00","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":26,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"time":"21:45","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":29,"cinema":"Cinesa Proyecciones","cinema_id":"E0402","movie":"Torrente Presidente","director":"Santiago Segura","genre":"Comedia","duration_min":90,"poster_url":"","rating":2.5,"time":"17:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":1,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"15:45","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":2,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"18:05","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":3,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"20:25","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":4,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"22:45","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":15,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Greenland 2: El regreso","director":"Ric Roman Waugh","genre":"Acción, Ciencia ficción","duration_min":97,"poster_url":"","rating":3.1,"time":"17:30","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":16,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Greenland 2: El regreso","director":"Ric Roman Waugh","genre":"Acción, Ciencia ficción","duration_min":97,"poster_url":"","rating":3.1,"time":"20:15","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":5,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"time":"16:15","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":6,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"time":"18:25","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":7,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"time":"20:35","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":11,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"La novia","director":"Maggie Gyllenhaal","genre":"Terror, Drama","duration_min":125,"poster_url":"","rating":3.6,"time":"18:00","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":12,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"La novia","director":"Maggie Gyllenhaal","genre":"Terror, Drama","duration_min":125,"poster_url":"","rating":3.6,"time":"23:30","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":20,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Perfect Blue","director":"Satoshi Kon","genre":"Animación, Thriller","duration_min":81,"poster_url":"","rating":4.5,"time":"20:45","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":21,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Power to the People","director":"","genre":"Documental, Música","duration_min":110,"poster_url":"","rating":3.9,"time":"18:45","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":13,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"time":"20:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":14,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"time":"22:30","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":8,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Torrente Presidente","director":"Santiago Segura","genre":"Comedia","duration_min":90,"poster_url":"","rating":2.5,"time":"16:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":17,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Whistle: El silbido del mal","director":"Corin Hardy","genre":"Terror","duration_min":96,"poster_url":"","rating":3.0,"time":"17:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":18,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Whistle: El silbido del mal","director":"Corin Hardy","genre":"Terror","duration_min":96,"poster_url":"","rating":3.0,"time":"19:15","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":19,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Whistle: El silbido del mal","director":"Corin Hardy","genre":"Terror","duration_min":96,"poster_url":"","rating":3.0,"time":"21:30","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":9,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Your Name","director":"Makoto Shinkai","genre":"Animación, Romance, Fantasía","duration_min":102,"poster_url":"","rating":4.4,"time":"16:15","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":10,"cinema":"Yelmo Ideal","cinema_id":"E0621","movie":"Your Name","director":"Makoto Shinkai","genre":"Animación, Romance, Fantasía","duration_min":102,"poster_url":"","rating":4.4,"time":"18:30","date":"2026-03-20","language":"VOSE","format":"2D"},{"id":51,"cinema":"mk2 Palacio de Hielo","cinema_id":"E0432","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"15:45","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":52,"cinema":"mk2 Palacio de Hielo","cinema_id":"E0432","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"18:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":53,"cinema":"mk2 Palacio de Hielo","cinema_id":"E0432","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"20:15","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":54,"cinema":"mk2 Palacio de Hielo","cinema_id":"E0432","movie":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"time":"22:30","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":55,"cinema":"mk2 Palacio de Hielo","cinema_id":"E0432","movie":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"time":"16:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":56,"cinema":"mk2 Palacio de Hielo","cinema_id":"E0432","movie":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"time":"18:15","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":57,"cinema":"mk2 Palacio de Hielo","cinema_id":"E0432","movie":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"time":"20:00","date":"2026-03-20","language":"Castellano","format":"2D"},{"id":58,"cinema":"mk2 Palacio de Hielo","cinema_id":"E0432","movie":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"time":"22:30","date":"2026-03-20","language":"Castellano","format":"2D"}],"movies":[{"id":1,"title":"Amarga Navidad","director":"Pedro Almodóvar","genre":"Drama","duration_min":111,"poster_url":"","rating":4.1,"synopsis":"Elsa, directora de publicidad, intenta continuar con su vida después de la muerte de su madre. Con Bárbara Lennie y Leonardo Sbaraglia."},{"id":11,"title":"Elegir mi vida","director":"Amélie Bonnin","genre":"Drama","duration_min":98,"poster_url":"","rating":3.5,"synopsis":"Una mujer redefine su vida tras una crisis existencial. Con Juliette Armanet."},{"id":7,"title":"Greenland 2: El regreso","director":"Ric Roman Waugh","genre":"Acción, Ciencia ficción","duration_min":97,"poster_url":"","rating":3.1,"synopsis":"La familia Garrity lucha por sobrevivir tras el impacto del cometa. Con Gerard Butler."},{"id":2,"title":"Hoppers","director":"Daniel Chong","genre":"Animación, Aventura","duration_min":105,"poster_url":"","rating":3.8,"synopsis":"Una rana y sus amigos viven aventuras en un mundo de fantasía. Con Bobby Moynihan, Jon Hamm y Meryl Streep."},{"id":13,"title":"Kelly Reichardt: Carta blanca","director":"Kelly Reichardt","genre":"Drama, Ciclo","duration_min":null,"poster_url":"","rating":null,"synopsis":"Sesión del ciclo Kelly Reichardt en la Filmoteca Española."},{"id":5,"title":"La novia","director":"Maggie Gyllenhaal","genre":"Terror, Drama","duration_min":125,"poster_url":"","rating":3.6,"synopsis":"Adaptación de La novia de Frankenstein. Con Jessie Buckley, Christian Bale y Penélope Cruz."},{"id":12,"title":"Lillian Hellman: Ficción, memoria y compromiso","director":"","genre":"Documental, Ciclo","duration_min":null,"poster_url":"","rating":null,"synopsis":"Sesión del ciclo Lillian Hellman en la Filmoteca Española."},{"id":9,"title":"Perfect Blue","director":"Satoshi Kon","genre":"Animación, Thriller","duration_min":81,"poster_url":"","rating":4.5,"synopsis":"Una idol pop deja su carrera para convertirse en actriz, pero pronto la persigue una presencia siniestra."},{"id":10,"title":"Power to the People","director":"","genre":"Documental, Música","duration_min":110,"poster_url":"","rating":3.9,"synopsis":"Los conciertos benéficos de John Lennon y Yoko Ono en el Madison Square Garden."},{"id":6,"title":"Scream VII","director":"Kevin Williamson","genre":"Terror, Misterio","duration_min":114,"poster_url":"","rating":3.4,"synopsis":"Ghostface regresa. Con Neve Campbell y Courteney Cox."},{"id":3,"title":"Torrente Presidente","director":"Santiago Segura","genre":"Comedia","duration_min":90,"poster_url":"","rating":2.5,"synopsis":"Torrente irrumpe en la política española."},{"id":8,"title":"Whistle: El silbido del mal","director":"Corin Hardy","genre":"Terror","duration_min":96,"poster_url":"","rating":3.0,"synopsis":"Un grupo de adolescentes desata un antiguo mal en un pueblo rural irlandés. Con Dafne Keen."},{"id":4,"title":"Your Name","director":"Makoto Shinkai","genre":"Animación, Romance, Fantasía","duration_min":102,"poster_url":"","rating":4.4,"synopsis":"Un chico de Tokio y una chica de un pueblo rural descubren que intercambian sus cuerpos mientras duermen."}],"cinemas":[{"id":5,"external_id":"G02GQ","name":"Cine Doré (Filmoteca)","address":""},{"id":3,"external_id":"E0247","name":"Cinesa Méndez Álvaro","address":""},{"id":2,"external_id":"E0402","name":"Cinesa Proyecciones","address":""},{"id":1,"external_id":"E0621","name":"Yelmo Ideal","address":""},{"id":4,"external_id":"E0432","name":"mk2 Palacio de Hielo","address":""}]};
+
+const allShowtimes = DATA.showtimes;
+const allMovies = DATA.movies;
+const allCinemas = DATA.cinemas;
+let activeLanguageFilter = '';
+
+// Cinema filter
+const cinemaFilter = document.getElementById('cinemaFilter');
+const cinemaNames = [...new Set(allShowtimes.map(s => s.cinema))].sort();
+cinemaNames.forEach(name => {
+  const opt = document.createElement('option');
+  opt.value = name; opt.textContent = name;
+  cinemaFilter.appendChild(opt);
+});
+cinemaFilter.addEventListener('change', () => renderMovies());
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const name = tab.dataset.tab;
+    document.getElementById('peliculas-tab').style.display = name === 'peliculas' ? '' : 'none';
+    document.getElementById('cines-tab').style.display = name === 'cines' ? '' : 'none';
+    if (name === 'cines') renderCinemas();
+  });
+});
+
+function renderStats(filtered) {
+  const cinemaCount = new Set(filtered.map(s => s.cinema)).size;
+  const movieCount = new Set(filtered.map(s => s.movie)).size;
+  const voseCount = filtered.filter(s => s.language === 'VOSE').length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-box"><div class="num">${movieCount}</div><div class="label">Peliculas</div></div>
+    <div class="stat-box"><div class="num">${filtered.length}</div><div class="label">Sesiones</div></div>
+    <div class="stat-box"><div class="num">${cinemaCount}</div><div class="label">Cines</div></div>
+    <div class="stat-box"><div class="num">${voseCount}</div><div class="label">VOSE</div></div>
+  `;
+}
+
+function renderLanguageFilters() {
+  const langs = [...new Set(allShowtimes.map(s => s.language))].sort();
+  const bar = document.getElementById('lang-filters');
+  bar.innerHTML = `<div class="filter-btn ${activeLanguageFilter === '' ? 'active' : ''}" data-lang="">Todos</div>`;
+  langs.forEach(lang => {
+    bar.innerHTML += `<div class="filter-btn ${activeLanguageFilter === lang ? 'active' : ''}" data-lang="${lang}">${lang}</div>`;
+  });
+  bar.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeLanguageFilter = btn.dataset.lang;
+      renderLanguageFilters();
+      renderMovies();
+    });
+  });
+}
+
+function renderMovies() {
+  const container = document.getElementById('movies-container');
+  const selectedCinema = cinemaFilter.value;
+
+  let filtered = allShowtimes;
+  if (selectedCinema) filtered = filtered.filter(s => s.cinema === selectedCinema);
+  if (activeLanguageFilter) filtered = filtered.filter(s => s.language === activeLanguageFilter);
+
+  renderStats(filtered);
+
+  const movieMap = new Map();
+  filtered.forEach(s => {
+    if (!movieMap.has(s.movie)) {
+      const mv = allMovies.find(m => m.title === s.movie) || {};
+      movieMap.set(s.movie, { ...mv, title: s.movie, showtimes: [] });
+    }
+    movieMap.get(s.movie).showtimes.push(s);
+  });
+
+  if (movieMap.size === 0) {
+    container.className = 'empty';
+    container.textContent = 'No hay sesiones para este filtro.';
+    return;
+  }
+
+  const movies = [...movieMap.values()].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+  container.className = 'movies-grid';
+  container.innerHTML = movies.map(mv => {
+    const byCinema = {};
+    mv.showtimes.forEach(s => {
+      if (!byCinema[s.cinema]) byCinema[s.cinema] = [];
+      byCinema[s.cinema].push(s);
+    });
+
+    const ratingHtml = mv.rating ? `<div class="rating">&#9733; ${mv.rating.toFixed(1)}</div>` : '';
+    const metaParts = [mv.director, mv.genre, mv.duration_min ? `${mv.duration_min} min` : null].filter(Boolean);
+    const synopsisHtml = mv.synopsis ? `<div class="synopsis">${esc(mv.synopsis)}</div>` : '';
+
+    const cinemaGroups = Object.entries(byCinema).map(([cinema, sts]) => {
+      const chips = sts.sort((a, b) => a.time.localeCompare(b.time)).map(s => {
+        let cls = 'chip';
+        if (s.language === 'VOSE') cls += ' vose';
+        if (s.format === 'IMAX') cls += ' imax';
+        else if (s.format === 'Atmos') cls += ' atmos';
+        else if (s.format === 'iSense') cls += ' isense';
+        const label = s.time + (s.language === 'VOSE' ? ' VOSE' : '') + (s.format !== '2D' ? ' ' + s.format : '');
+        return `<span class="${cls}">${label}</span>`;
+      }).join('');
+      return `<div class="cinema-group"><div class="cinema-name">${esc(cinema)}</div><div class="time-chips">${chips}</div></div>`;
+    }).join('');
+
+    return `
+      <div class="movie-card">
+        <div class="top">
+          <div class="title">${esc(mv.title)}</div>
+          <div class="meta">${esc(metaParts.join(' \u00B7 '))}</div>
+          ${ratingHtml}
+          ${synopsisHtml}
+        </div>
+        <div class="showtimes-section">${cinemaGroups}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderCinemas() {
+  const container = document.getElementById('cinemas-container');
+  container.className = 'cinemas-list';
+  container.innerHTML = allCinemas.map(c => {
+    const sessionCount = allShowtimes.filter(s => s.cinema === c.name).length;
+    return `
+      <div class="cinema-card">
+        <h3>${esc(c.name)}</h3>
+        <div class="ext-id">${esc(c.external_id)} &mdash; ${sessionCount} sesiones hoy</div>
+      </div>`;
+  }).join('');
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+renderLanguageFilters();
+renderMovies();
+</script>
+</body>
+</html>
