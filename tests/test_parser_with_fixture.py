@@ -159,7 +159,7 @@ def test_with_fixture(data: dict, label: str, expected_count: int | None = None)
     print(f"{'='*60}")
 
     scraper = SensaCineScraper()
-    showtimes = scraper._parse_response(data, "C0094", "Yelmo Ideal", "2026-03-20")
+    showtimes = scraper._parse_response(data, "E0621", "Yelmo Ideal", "2026-03-20")
 
     print(f"Parsed {len(showtimes)} showtimes")
     for st in showtimes:
@@ -177,7 +177,7 @@ def test_with_fixture(data: dict, label: str, expected_count: int | None = None)
     # Validate fields
     for st in showtimes:
         assert st.cinema_name == "Yelmo Ideal", f"Bad cinema: {st.cinema_name}"
-        assert st.cinema_id == "C0094", f"Bad cinema_id: {st.cinema_id}"
+        assert st.cinema_id == "E0621", f"Bad cinema_id: {st.cinema_id}"
         assert st.movie_title, "Empty movie title"
         assert ":" in st.showtime, f"Bad time format: {st.showtime}"
         assert st.date == "2026-03-20", f"Bad date: {st.date}"
@@ -225,7 +225,7 @@ def main():
     print("Testing: Field extraction details")
     print(f"{'='*60}")
     scraper = SensaCineScraper()
-    sts = scraper._parse_response(MOCK_REAL_STRUCTURE, "C0094", "Yelmo Ideal", "2026-03-20")
+    sts = scraper._parse_response(MOCK_REAL_STRUCTURE, "E0621", "Yelmo Ideal", "2026-03-20")
 
     cap = [s for s in sts if "Capitán" in s.movie_title]
     assert len(cap) == 6, f"Expected 6 Cap América showtimes, got {len(cap)}"

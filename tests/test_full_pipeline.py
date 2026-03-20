@@ -48,29 +48,29 @@ def test_pipeline():
 
     # 2. Create realistic scrape result
     showtimes = [
-        Showtime("Yelmo Ideal", "C0094", "Capitán América: Brave New World", "301843",
+        Showtime("Yelmo Ideal", "E0621", "Capitán América: Brave New World", "301843",
                  "14:30", "2026-03-20", "Castellano", "2D", "Julius Onah",
                  "https://example.com/cap4.jpg", "Sam Wilson asume el manto...",
                  3.2, "Acción, Aventura", 118),
-        Showtime("Yelmo Ideal", "C0094", "Capitán América: Brave New World", "301843",
+        Showtime("Yelmo Ideal", "E0621", "Capitán América: Brave New World", "301843",
                  "17:15", "2026-03-20", "VOSE", "2D", "Julius Onah",
                  "", "", 3.2, "Acción, Aventura", 118),
-        Showtime("Yelmo Ideal", "C0094", "Dune: Parte Dos", "295937",
+        Showtime("Yelmo Ideal", "E0621", "Dune: Parte Dos", "295937",
                  "15:00", "2026-03-20", "VOSE", "IMAX", "Denis Villeneuve",
                  "", "", 4.5, "Ciencia ficción", 166),
-        Showtime("Yelmo Ideal", "C0094", "Anora", "312456",
+        Showtime("Yelmo Ideal", "E0621", "Anora", "312456",
                  "17:30", "2026-03-20", "VOSE", "2D", "Sean Baker",
                  "", "", 4.1, "Drama, Comedia", 139),
-        Showtime("Cinesa Proyecciones", "C0062", "Capitán América: Brave New World", "301843",
+        Showtime("Cinesa Proyecciones", "E0402", "Capitán América: Brave New World", "301843",
                  "20:00", "2026-03-20", "Castellano", "2D", "Julius Onah",
                  "", "", 3.2, "Acción, Aventura", 118),
-        Showtime("Cinesa Proyecciones", "C0062", "Flow", "320001",
+        Showtime("Cinesa Proyecciones", "E0402", "Flow", "320001",
                  "12:00", "2026-03-20", "VOSE", "2D", "Gints Zilbalodis",
                  "", "", 4.3, "Animación", 85),
-        Showtime("Renoir Princesa", "C0335", "Anora", "312456",
+        Showtime("Cines Princesa (Renoir)", "E0364", "Anora", "312456",
                  "19:00", "2026-03-20", "VOSE", "2D", "Sean Baker",
                  "", "", 4.1, "Drama, Comedia", 139),
-        Showtime("Cine Doré (Filmoteca)", "C0034", "El séptimo sello", "000001",
+        Showtime("Cine Doré (Filmoteca)", "G02GQ", "El séptimo sello", "000001",
                  "18:00", "2026-03-20", "VOSE", "2D", "Ingmar Bergman",
                  "", "", 4.8, "Drama", 96),
     ]
@@ -117,7 +117,7 @@ def test_pipeline():
     assert r.status_code == 200
     assert r.json()["count"] == 4
 
-    r = client.get("/api/showtimes/C0094?fecha=2026-03-20")
+    r = client.get("/api/showtimes/E0621?fecha=2026-03-20")
     assert r.status_code == 200
     assert r.json()["count"] == 4  # 4 showtimes at Yelmo Ideal
 

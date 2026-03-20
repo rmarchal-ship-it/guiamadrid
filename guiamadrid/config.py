@@ -13,28 +13,32 @@ DATABASE_URL = f"sqlite:///{DB_PATH}"
 # SensaCine (shares backend with allocine.fr)
 SENSACINE_BASE_URL = "https://www.sensacine.com"
 
-# Cines de Madrid — IDs de SensaCine
+# Cines de Madrid — IDs de SensaCine (verificados en sensacine.com/cines/cine/EXXXX/)
 SENSACINE_THEATER_IDS = {
-    "C0094": "Yelmo Ideal",
-    "C0062": "Cinesa Proyecciones",
-    "C0758": "Yelmo Palafox",
-    "C0335": "Renoir Princesa",
-    "C0482": "Renoir Plaza de España",
-    "C0089": "Cines Verdi Madrid",
-    "C0034": "Cine Doré (Filmoteca)",
-    "C0816": "Cinesa Méndez Álvaro",
-    "C0073": "Cinesa Manoteras",
-    "C0898": "Yelmo Luxury Palacio de Hielo",
-    "C0060": "Cinesa Príncipe Pío",
-    "C0802": "Cinesa La Vaguada",
-    "C0041": "Cines Embajadores",
-    "C0814": "Cinesa Equinoccio",
-    "C0801": "Cinesa Parquesur",
-    "C0800": "Cinesa Xanadú",
-    "C0815": "Cinesa Plenilunio",
-    "C0053": "Yelmo Plaza Norte 2",
-    "C0817": "Cinesa As Cancelas",
-    "C0059": "Cinesa Tres Aguas",
+    # Centro Madrid
+    "E0621": "Yelmo Ideal",
+    "E0402": "Cinesa Proyecciones",
+    "E1001": "Yelmo Luxury Palafox",
+    "E0364": "Cines Princesa (Renoir)",
+    "E0577": "Renoir Plaza de España",
+    "E0609": "Cines Verdi Madrid",
+    "G02GQ": "Cine Doré (Filmoteca)",
+    "E1032": "Cines Embajadores",
+    # Madrid periferia
+    "E0247": "Cinesa Méndez Álvaro",
+    "E0646": "Cinesa Manoteras",
+    "E0432": "mk2 Palacio de Hielo",
+    "E0401": "Cinesa Príncipe Pío",
+    "E0459": "Yelmo La Vaguada",
+    "E0475": "Yelmo Plenilunio",
+    # Comunidad de Madrid
+    "E0385": "Cinesa Equinoccio (Majadahonda)",
+    "E0399": "Cinesa Parquesur (Leganés)",
+    "E0406": "Cinesa Intu Xanadú (Arroyomolinos)",
+    "E2916": "Yelmo Plaza Norte 2 (S.S. de los Reyes)",
+    "E0207": "Yelmo Tres Aguas (Alcorcón)",
+    # Fuera de Madrid
+    "E0795": "Cinesa As Cancelas (Santiago)",
 }
 
 # Scraper settings

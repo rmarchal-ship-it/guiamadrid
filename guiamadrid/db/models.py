@@ -23,7 +23,7 @@ class Cinema(Base):
     __tablename__ = "cinemas"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    external_id = Column(String(20), unique=True, nullable=False)  # "C0094"
+    external_id = Column(String(20), unique=True, nullable=False)  # "E0621"
     name = Column(String(200), nullable=False)
     source = Column(String(50), default="sensacine")  # scraper source
     address = Column(String(500), default="")
