@@ -1,5 +1,7 @@
 """Email digest sender for Guía del Ocio Madrid."""
 
+from __future__ import annotations
+
 import os
 import smtplib
 from datetime import date

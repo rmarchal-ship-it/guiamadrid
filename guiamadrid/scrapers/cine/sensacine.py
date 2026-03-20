@@ -39,6 +39,8 @@ Response JSON structure (confirmed via allocine-seances package):
     }
 """
 
+from __future__ import annotations
+
 from datetime import date, datetime
 
 from guiamadrid.config import SENSACINE_BASE_URL, SENSACINE_THEATER_IDS

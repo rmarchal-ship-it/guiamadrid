@@ -1,5 +1,7 @@
 """Base scraper with shared HTTP logic and rate limiting."""
 
+from __future__ import annotations
+
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field

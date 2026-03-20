@@ -8,6 +8,8 @@ Usage:
     python -m guiamadrid stats           # Show DB stats
 """
 
+from __future__ import annotations
+
 import sys
 from datetime import date
 
