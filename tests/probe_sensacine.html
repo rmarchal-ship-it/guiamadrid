@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SensaCine API Probe</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a2e;
+    --surface2: #16213e;
+    --accent: #e94560;
+    --accent2: #0f3460;
+    --text: #eee;
+    --text2: #aaa;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #f87171;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    padding: 0 0 env(safe-area-inset-bottom);
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--accent2) 100%);
+    padding: 24px 20px 20px;
+    text-align: center;
+    position: sticky; top: 0; z-index: 10;
+    border-bottom: 1px solid rgba(233,69,96,.3);
+    backdrop-filter: blur(10px);
+  }
+  header h1 { font-size: 20px; font-weight: 700; letter-spacing: -.5px; }
+  header p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  .controls {
+    padding: 16px 20px;
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: end;
+  }
+  .field { flex: 1; min-width: 120px; }
+  .field label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
+  .field select, .field input {
+    width: 100%;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 15px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23aaa'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+
+  button.run {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    white-space: nowrap;
+    min-height: 42px;
+  }
+  button.run:active { transform: scale(.96); }
+  button.run:disabled { opacity: .4; cursor: not-allowed; }
+
+  #status {
+    padding: 0 20px;
+    font-size: 13px;
+    color: var(--text2);
+    min-height: 20px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #status .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  #status .dot.loading { background: var(--warn); animation: pulse .8s infinite alternate; }
+  #status .dot.ok { background: var(--ok); }
+  #status .dot.err { background: var(--err); }
+  @keyframes pulse { from { opacity: .4; } to { opacity: 1; } }
+
+  .summary {
+    margin: 12px 20px;
+    padding: 16px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    display: none;
+  }
+  .summary.show { display: block; }
+  .summary .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .summary .stat-val { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .summary .stat-lbl { font-size: 11px; color: var(--text2); text-transform: uppercase; }
+
+  .movies { padding: 0 20px 80px; }
+  .movie-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.05);
+  }
+  .movie-header {
+    display: flex;
+    gap: 14px;
+    padding: 14px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .movie-poster {
+    width: 56px; height: 80px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+  .movie-poster.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; color: var(--text2);
+  }
+  .movie-info { flex: 1; min-width: 0; }
+  .movie-title { font-size: 16px; font-weight: 600; line-height: 1.3; }
+  .movie-meta { font-size: 12px; color: var(--text2); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .movie-meta .tag {
+    background: var(--accent2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .showtimes-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 14px 14px;
+  }
+  .showtime-chip {
+    background: var(--surface2);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: center;
+    min-width: 70px;
+  }
+  .showtime-chip .time { font-size: 16px; font-weight: 600; }
+  .showtime-chip .lang { font-size: 10px; color: var(--text2); margin-top: 2px; }
+  .showtime-chip.dubbed { border-color: rgba(233,69,96,.3); }
+  .showtime-chip.original { border-color: rgba(74,222,128,.3); }
+  .showtime-chip.imax { border-color: rgba(96,165,250,.4); background: rgba(96,165,250,.08); }
+
+  .movie-details {
+    padding: 0 14px 14px;
+    display: none;
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+  .movie-card.expanded .movie-details { display: block; }
+
+  .raw-json {
+    margin: 16px 20px;
+    display: none;
+  }
+  .raw-json.show { display: block; }
+  .raw-json summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text2);
+    padding: 8px 0;
+  }
+  .raw-json pre {
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 11px;
+    line-height: 1.4;
+    max-height: 400px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .copy-btn {
+    background: var(--accent2);
+    color: var(--text);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SensaCine API Probe</h1>
+  <p>Verificación de la API de cartelera en tiempo real</p>
+</header>
+
+<div class="controls">
+  <div class="field" style="flex:2">
+    <label>Cine</label>
+    <select id="theater">
+      <optgroup label="Centro Madrid">
+        <option value="E0621" selected>Yelmo Ideal</option>
+        <option value="E0402">Cinesa Proyecciones</option>
+        <option value="E1001">Yelmo Luxury Palafox</option>
+        <option value="E0364">Cines Princesa (Renoir)</option>
+        <option value="E0577">Renoir Plaza de España</option>
+        <option value="E0609">Cines Verdi Madrid</option>
+        <option value="G02GQ">Cine Doré (Filmoteca)</option>
+        <option value="E1032">Cines Embajadores</option>
+      </optgroup>
+      <optgroup label="Madrid periferia">
+        <option value="E0247">Cinesa Méndez Álvaro</option>
+        <option value="E0646">Cinesa Manoteras</option>
+        <option value="E0432">mk2 Palacio de Hielo</option>
+        <option value="E0401">Cinesa Príncipe Pío</option>
+        <option value="E0459">Yelmo La Vaguada</option>
+        <option value="E0475">Yelmo Plenilunio</option>
+      </optgroup>
+      <optgroup label="Comunidad de Madrid">
+        <option value="E0385">Cinesa Equinoccio (Majadahonda)</option>
+        <option value="E0399">Cinesa Parquesur (Leganés)</option>
+        <option value="E0406">Cinesa Intu Xanadú (Arroyomolinos)</option>
+        <option value="E2916">Yelmo Plaza Norte 2</option>
+        <option value="E0207">Yelmo Tres Aguas (Alcorcón)</option>
+      </optgroup>
+      <optgroup label="Fuera de Madrid">
+        <option value="E0795">Cinesa As Cancelas (Santiago)</option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="field">
+    <label>Fecha</label>
+    <input type="date" id="date">
+  </div>
+  <button class="run" id="fetchBtn" onclick="probe()">Buscar</button>
+</div>
+
+<div id="status"></div>
+
+<div class="summary" id="summary">
+  <div class="stats">
+    <div><div class="stat-val" id="statMovies">0</div><div class="stat-lbl">Películas</div></div>
+    <div><div class="stat-val" id="statSessions">0</div><div class="stat-lbl">Sesiones</div></div>
+    <div><div class="stat-val" id="statPages">0</div><div class="stat-lbl">Páginas</div></div>
+  </div>
+</div>
+
+<div class="movies" id="movies"></div>
+
+<div class="raw-json" id="rawSection">
+  <details>
+    <summary>Ver JSON completo (para copiar a tests/fixtures/)</summary>
+    <pre id="rawJson"></pre>
+    <button class="copy-btn" onclick="copyJson()">Copiar JSON al portapapeles</button>
+  </details>
+</div>
+
+<script>
+// Set default date to today
+document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+let lastJsonData = null;
+
+function setStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.innerHTML = `<span class="dot ${type}"></span> ${msg}`;
+}
+
+async function probe() {
+  const theaterId = document.getElementById('theater').value;
+  const theaterName = document.getElementById('theater').selectedOptions[0].text;
+  const dateStr = document.getElementById('date').value;
+  const btn = document.getElementById('fetchBtn');
+
+  btn.disabled = true;
+  btn.textContent = '...';
+  document.getElementById('movies').innerHTML = '';
+  document.getElementById('summary').classList.remove('show');
+  document.getElementById('rawSection').classList.remove('show');
+
+  let allResults = [];
+  let page = 1;
+  let totalPages = 1;
+  let fetchedPages = 0;
+
+  try {
+    while (page <= totalPages) {
+      const url = `https://www.sensacine.com/_/showtimes/theater-${theaterId}/d-${dateStr}/p-${page}`;
+      setStatus('loading', `Cargando página ${page}${totalPages > 1 ? '/'+totalPages : ''}...`);
+
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+
+      const ct = resp.headers.get('content-type') || '';
+      const text = await resp.text();
+
+      if (!ct.includes('json') && !text.trim().startsWith('{')) {
+        throw new Error(`Respuesta no es JSON (${ct}). ¿Estás en sensacine.com? Abre esta página desde Safari en sensacine.com para que funcione.`);
+      }
+
+      const data = JSON.parse(text);
+      totalPages = data.pagination?.totalPages || 1;
+      const results = data.results || [];
+      allResults.push(...results);
+      fetchedPages++;
+      page++;
+    }
+
+    lastJsonData = { pagination: { page: 1, totalPages: 1 }, results: allResults };
+    renderResults(allResults, theaterName, dateStr, fetchedPages);
+    setStatus('ok', `${theaterName} — ${allResults.length} películas, ${countShowtimes(allResults)} sesiones`);
+
+  } catch (err) {
+    setStatus('err', err.message);
+    // If CORS error, show helpful message
+    if (err.message.includes('Failed to fetch') || err.message.includes('CORS') || err.message.includes('NetworkError')) {
+      setStatus('err', 'Error de red/CORS. Abre este HTML desde sensacine.com (ver instrucciones abajo).');
+      document.getElementById('movies').innerHTML = `
+        <div style="padding:20px;background:var(--surface);border-radius:12px;line-height:1.6">
+          <p style="color:var(--err);font-weight:600;margin-bottom:12px">La API solo funciona desde el dominio sensacine.com</p>
+          <p style="color:var(--text2);margin-bottom:8px"><strong>Opción A:</strong> Abre sensacine.com en Safari → Abre la Consola de DevTools (Desarrollar → Mostrar consola JavaScript) → Pega este código:</p>
+          <pre style="background:var(--surface2);padding:12px;border-radius:8px;font-size:12px;overflow-x:auto;margin-bottom:12px">fetch('/_/showtimes/theater-${theaterId}/d-${dateStr}/p-1')
+  .then(r => r.json())
+  .then(d => console.log(JSON.stringify(d, null, 2)))</pre>
+          <p style="color:var(--text2)"><strong>Opción B:</strong> Guarda este HTML y ábrelo con un servidor local (python3 -m http.server) para evitar restricciones de file://</p>
+        </div>`;
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Buscar';
+  }
+}
+
+function countShowtimes(results) {
+  let n = 0;
+  results.forEach(e => {
+    Object.values(e.showtimes || {}).forEach(arr => {
+      if (Array.isArray(arr)) n += arr.length;
+    });
+  });
+  return n;
+}
+
+function renderResults(results, theaterName, dateStr, pages) {
+  // Summary
+  const total = countShowtimes(results);
+  document.getElementById('statMovies').textContent = results.length;
+  document.getElementById('statSessions').textContent = total;
+  document.getElementById('statPages').textContent = pages;
+  document.getElementById('summary').classList.add('show');
+
+  // Movies
+  const container = document.getElementById('movies');
+  container.innerHTML = '';
+
+  results.forEach((entry, i) => {
+    const m = entry.movie || {};
+    const title = m.title || m.originalTitle || '?';
+    const director = getDirector(m);
+    const runtime = m.runtime ? Math.round(m.runtime / 60) : null;
+    const genres = (m.genres || []).map(g => g.translate || g.name || g).join(', ');
+    const posterUrl = m.poster?.url || '';
+    const rating = m.statistics?.userRating || m.userRating;
+
+    // Collect and dedupe showtimes
+    const showtimes = [];
+    const seenIds = new Set();
+    Object.entries(entry.showtimes || {}).forEach(([versionKey, sessions]) => {
+      if (!Array.isArray(sessions)) return;
+      sessions.forEach(s => {
+        if (s.internalId && seenIds.has(s.internalId)) return;
+        if (s.internalId) seenIds.add(s.internalId);
+        const time = parseTime(s.startsAt);
+        if (!time) return;
+        showtimes.push({
+          time,
+          lang: diffusionToLang(s.diffusionVersion || versionKey),
+          fmt: versionToFormat(versionKey),
+          raw: s
+        });
+      });
+    });
+    showtimes.sort((a, b) => a.time.localeCompare(b.time));
+
+    const card = document.createElement('div');
+    card.className = 'movie-card';
+    card.innerHTML = `
+      <div class="movie-header" onclick="this.parentElement.classList.toggle('expanded')">
+        ${posterUrl
+          ? `<img class="movie-poster" src="${posterUrl}" alt="" loading="lazy" onerror="this.outerHTML='<div class=\\'movie-poster placeholder\\'>🎬</div>'">`
+          : '<div class="movie-poster placeholder">🎬</div>'}
+        <div class="movie-info">
+          <div class="movie-title">${esc(title)}</div>
+          <div class="movie-meta">
+            ${director ? `<span>${esc(director)}</span>` : ''}
+            ${runtime ? `<span>${runtime} min</span>` : ''}
+            ${rating ? `<span class="tag">★ ${rating}</span>` : ''}
+            ${genres ? `<span>${esc(genres)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="showtimes-grid">
+        ${showtimes.map(s => `
+          <div class="showtime-chip ${chipClass(s)}">
+            <div class="time">${s.time}</div>
+            <div class="lang">${esc(s.lang)}${s.fmt !== '2D' ? ' · '+s.fmt : ''}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="movie-details">
+        <p>${esc(m.synopsisFull || m.synopsis || 'Sin sinopsis')}</p>
+        ${m.originalTitle && m.originalTitle !== m.title ? `<p style="margin-top:6px;font-style:italic">${esc(m.originalTitle)}</p>` : ''}
+        <p style="margin-top:8px;font-size:11px;color:#666">internalId: ${m.internalId || '?'} · runtime: ${m.runtime || '?'}s · genres: ${JSON.stringify(m.genres||[])}</p>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  // Raw JSON
+  document.getElementById('rawJson').textContent = JSON.stringify(lastJsonData, null, 2);
+  document.getElementById('rawSection').classList.add('show');
+}
+
+function getDirector(movie) {
+  const credits = movie.credits || [];
+  const dirs = credits.filter(c => c.position?.name === 'DIRECTOR');
+  return dirs.map(d => `${d.person?.firstName || ''} ${d.person?.lastName || ''}`.trim()).join(', ');
+}
+
+function parseTime(startsAt) {
+  if (!startsAt) return '';
+  if (startsAt.includes('T')) {
+    try { return new Date(startsAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); } catch(e) {}
+  }
+  if (startsAt.includes(':')) return startsAt.slice(0, 5);
+  return '';
+}
+
+function diffusionToLang(d) {
+  const u = (d || '').toUpperCase();
+  if (u.includes('ORIGINAL') || u.includes('VOSE') || u.includes('VOS')) return 'VOSE';
+  if (u.includes('DUBBED') || u.includes('LOCAL')) return 'Castellano';
+  if (u.includes('VO')) return 'VO';
+  return d || '';
+}
+
+function versionToFormat(key) {
+  const u = (key || '').toUpperCase();
+  if (u.includes('IMAX')) return 'IMAX';
+  if (u.includes('3D')) return '3D';
+  if (u.includes('4DX')) return '4DX';
+  if (u.includes('ATMOS')) return 'Atmos';
+  return '2D';
+}
+
+function chipClass(s) {
+  if (s.fmt === 'IMAX') return 'imax';
+  if (s.lang === 'Castellano') return 'dubbed';
+  return 'original';
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function copyJson() {
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(lastJsonData, null, 2));
+    setStatus('ok', 'JSON copiado al portapapeles — pégalo en tests/fixtures/sensacine_sample.json');
+  } catch(e) {
+    // Fallback for Safari
+    const ta = document.createElement('textarea');
+    ta.value = JSON.stringify(lastJsonData, null, 2);
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    setStatus('ok', 'JSON copiado — pégalo en tests/fixtures/sensacine_sample.json');
+  }
+}
+</script>
+</body>
+</html>
