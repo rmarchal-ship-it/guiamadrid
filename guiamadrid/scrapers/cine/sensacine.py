@@ -1,17 +1,55 @@
-"""SensaCine scraper — uses internal JSON API for showtimes."""
+"""SensaCine scraper — uses internal JSON API for showtimes.
+
+SensaCine (sensacine.com) and AlloCiné (allocine.fr) share the same
+backend API. The endpoint is:
+
+    https://www.sensacine.com/_/showtimes/theater-{ID}/d-{YYYY-MM-DD}/p-{page}
+
+Response JSON structure (confirmed via allocine-seances package):
+    {
+      "pagination": {"page": 1, "totalPages": 2},
+      "results": [
+        {
+          "movie": {
+            "internalId": 301843,
+            "title": "...",
+            "originalTitle": "...",
+            "credits": [{"position": {"name": "DIRECTOR"}, "person": {"firstName": "...", "lastName": "..."}}],
+            "genres": [{"translate": "Acción"}],
+            "runtime": 7080,          // seconds
+            "poster": {"url": "..."},
+            "synopsisFull": "...",
+            "releases": [...],
+            "languages": [...],
+            "flags": {"hasDvdRelease": false},
+            "customFlags": {"isPremiere": false, "weeklyOuting": false}
+          },
+          "showtimes": {
+            "dubbed": [
+              {"internalId": 123, "startsAt": "2026-03-20T14:30:00", "diffusionVersion": "DUBBED"},
+              ...
+            ],
+            "original": [
+              {"internalId": 456, "startsAt": "2026-03-20T16:00:00", "diffusionVersion": "ORIGINAL"},
+              ...
+            ]
+          }
+        }
+      ]
+    }
+"""
 
 from datetime import date, datetime
 
-from guiamadrid.config import SENSACINE_SHOWTIMES_URL, SENSACINE_THEATER_IDS
+from guiamadrid.config import SENSACINE_BASE_URL, SENSACINE_THEATER_IDS
 from guiamadrid.scrapers.base import BaseScraper, ScrapeResult, Showtime
+
+# Showtimes URL with pagination support
+_SHOWTIMES_URL = SENSACINE_BASE_URL + "/_/showtimes/theater-{theater_id}/d-{date}/p-{page}"
 
 
 class SensaCineScraper(BaseScraper):
-    """Scrapes movie showtimes from SensaCine's internal API.
-
-    API endpoint: sensacine.com/_/showtimes/theater-{ID}/d-{fecha}/
-    Returns JSON with movie + showtime data per theater.
-    """
+    """Scrapes movie showtimes from SensaCine's internal API."""
 
     def scrape(self, target_date: date | None = None) -> ScrapeResult:
         target_date = target_date or date.today()
@@ -23,9 +61,7 @@ class SensaCineScraper(BaseScraper):
 
         for theater_id, cinema_name in SENSACINE_THEATER_IDS.items():
             try:
-                showtimes = self._scrape_theater(
-                    theater_id, cinema_name, date_str
-                )
+                showtimes = self._scrape_theater(theater_id, cinema_name, date_str)
                 for st in showtimes:
                     seen_movies.add(st.movie_title)
                 all_showtimes.extend(showtimes)
@@ -42,12 +78,26 @@ class SensaCineScraper(BaseScraper):
     def _scrape_theater(
         self, theater_id: str, cinema_name: str, date_str: str
     ) -> list[Showtime]:
-        """Scrape all showtimes for a single theater on a date."""
-        url = SENSACINE_SHOWTIMES_URL.format(
-            theater_id=theater_id, date=date_str
-        )
-        data = self._get_json(url)
-        return self._parse_response(data, theater_id, cinema_name, date_str)
+        """Scrape all pages of showtimes for a single theater on a date."""
+        all_showtimes: list[Showtime] = []
+        page = 1
+        total_pages = 1
+
+        while page <= total_pages:
+            url = _SHOWTIMES_URL.format(
+                theater_id=theater_id, date=date_str, page=page
+            )
+            data = self._get_json(url)
+
+            # Update pagination
+            pagination = data.get("pagination", {})
+            total_pages = int(pagination.get("totalPages", 1))
+
+            showtimes = self._parse_response(data, theater_id, cinema_name, date_str)
+            all_showtimes.extend(showtimes)
+            page += 1
+
+        return all_showtimes
 
     def _parse_response(
         self,
@@ -58,154 +108,174 @@ class SensaCineScraper(BaseScraper):
     ) -> list[Showtime]:
         """Parse the SensaCine JSON response into Showtime objects."""
         showtimes: list[Showtime] = []
-
-        # The API returns a "results" key with movie entries
-        results = data.get("results", data.get("movies", []))
-        if isinstance(results, dict):
-            results = results.get("movies", list(results.values()))
+        results = data.get("results", [])
         if not isinstance(results, list):
-            results = []
+            return showtimes
 
-        for movie_data in results:
+        for entry in results:
+            movie_data = entry.get("movie")
+            if movie_data is None:
+                continue
+
             movie_info = self._extract_movie_info(movie_data)
-            sessions = self._extract_sessions(movie_data)
+            seen_ids: set[int] = set()
 
-            for session in sessions:
-                showtimes.append(
-                    Showtime(
-                        cinema_name=cinema_name,
-                        cinema_id=theater_id,
-                        movie_title=movie_info["title"],
-                        movie_id=movie_info.get("id"),
-                        showtime=session.get("time", ""),
-                        date=date_str,
-                        language=session.get("language", ""),
-                        format=session.get("format", "2D"),
-                        director=movie_info.get("director", ""),
-                        poster_url=movie_info.get("poster", ""),
-                        synopsis=movie_info.get("synopsis", ""),
-                        rating=movie_info.get("rating"),
-                        genre=movie_info.get("genre", ""),
-                        duration_min=movie_info.get("duration"),
+            showtimes_dict = entry.get("showtimes", {})
+            if not isinstance(showtimes_dict, dict):
+                continue
+
+            for version_key, version_sessions in showtimes_dict.items():
+                if not isinstance(version_sessions, list):
+                    continue
+
+                for session in version_sessions:
+                    # Deduplicate by internalId
+                    internal_id = session.get("internalId")
+                    if internal_id is not None and internal_id in seen_ids:
+                        continue
+                    if internal_id is not None:
+                        seen_ids.add(internal_id)
+
+                    time_str = self._parse_time(session.get("startsAt", ""))
+                    if not time_str:
+                        continue
+
+                    diffusion = session.get("diffusionVersion", version_key)
+                    language = _diffusion_to_language(diffusion)
+                    screen_fmt = _version_key_to_format(version_key)
+
+                    showtimes.append(
+                        Showtime(
+                            cinema_name=cinema_name,
+                            cinema_id=theater_id,
+                            movie_title=movie_info["title"],
+                            movie_id=movie_info["id"],
+                            showtime=time_str,
+                            date=date_str,
+                            language=language,
+                            format=screen_fmt,
+                            director=movie_info["director"],
+                            poster_url=movie_info["poster"],
+                            synopsis=movie_info["synopsis"],
+                            rating=movie_info["rating"],
+                            genre=movie_info["genre"],
+                            duration_min=movie_info["duration"],
+                        )
                     )
-                )
 
         return showtimes
 
-    def _extract_movie_info(self, movie_data: dict) -> dict:
-        """Extract movie metadata from API response."""
-        # Handle different possible JSON structures
-        movie = movie_data.get("movie", movie_data)
+    @staticmethod
+    def _extract_movie_info(movie: dict) -> dict:
+        """Extract movie metadata from the movie object."""
+        title = movie.get("title") or movie.get("originalTitle") or "Unknown"
 
-        title = (
-            movie.get("title")
-            or movie.get("name")
-            or movie.get("originalTitle", "Unknown")
-        )
-        rating_raw = movie.get("userRating") or movie.get("pressRating")
+        # Director from credits array
+        director = ""
+        for credit in movie.get("credits", []):
+            pos = credit.get("position", {})
+            if pos.get("name") == "DIRECTOR":
+                person = credit.get("person", {})
+                name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip()
+                if name:
+                    director = f"{director} | {name}" if director else name
+
+        # Poster URL
+        poster = ""
+        poster_obj = movie.get("poster")
+        if isinstance(poster_obj, dict):
+            poster = poster_obj.get("url", "")
+        elif isinstance(poster_obj, str):
+            poster = poster_obj
+
+        # Synopsis
+        synopsis = movie.get("synopsisFull") or movie.get("synopsis", "")
+
+        # Rating — userRating is a dict with score, or a float
         rating = None
-        if rating_raw is not None:
+        user_rating = movie.get("statistics", {}).get("userRating") if isinstance(movie.get("statistics"), dict) else None
+        if user_rating is None:
+            user_rating = movie.get("userRating")
+        if user_rating is not None:
             try:
-                rating = float(rating_raw)
+                rating = float(user_rating)
             except (ValueError, TypeError):
                 pass
 
-        duration = movie.get("runtime") or movie.get("duration")
-        if duration and isinstance(duration, str):
-            # Parse "2h 15min" format
-            parts = duration.replace("h", "").replace("min", "").split()
-            try:
-                duration = int(parts[0]) * 60 + (int(parts[1]) if len(parts) > 1 else 0)
-            except (ValueError, IndexError):
-                duration = None
+        # Genres
+        genres_raw = movie.get("genres", [])
+        if isinstance(genres_raw, list):
+            genre_names = []
+            for g in genres_raw:
+                if isinstance(g, dict):
+                    genre_names.append(g.get("translate") or g.get("name", ""))
+                elif isinstance(g, str):
+                    genre_names.append(g)
+            genre_str = ", ".join(filter(None, genre_names))
+        else:
+            genre_str = str(genres_raw)
 
-        genres = movie.get("genre") or movie.get("genres", [])
-        if isinstance(genres, list):
-            genres = ", ".join(
-                g.get("name", g) if isinstance(g, dict) else str(g)
-                for g in genres
-            )
+        # Runtime in seconds → minutes
+        runtime = movie.get("runtime")
+        duration = None
+        if isinstance(runtime, (int, float)) and runtime > 0:
+            duration = int(runtime) // 60 if runtime > 300 else int(runtime)  # >300 = seconds, else already minutes
 
         return {
-            "id": str(movie.get("id", "")),
+            "id": str(movie.get("internalId", movie.get("id", ""))),
             "title": title,
-            "director": self._get_director(movie),
-            "poster": movie.get("poster", {}).get("url", "") if isinstance(movie.get("poster"), dict) else movie.get("poster", ""),
-            "synopsis": movie.get("synopsis", ""),
+            "director": director,
+            "poster": poster,
+            "synopsis": synopsis,
             "rating": rating,
-            "genre": genres if isinstance(genres, str) else "",
-            "duration": duration if isinstance(duration, int) else None,
+            "genre": genre_str,
+            "duration": duration,
         }
 
     @staticmethod
-    def _get_director(movie: dict) -> str:
-        """Extract director name from movie data."""
-        directors = movie.get("directors", movie.get("castingShort", {}).get("directors", ""))
-        if isinstance(directors, list):
-            return ", ".join(
-                d.get("name", "") if isinstance(d, dict) else str(d)
-                for d in directors
-            )
-        return str(directors) if directors else ""
+    def _parse_time(starts_at: str) -> str:
+        """Parse 'startsAt' field → 'HH:MM' string.
 
-    @staticmethod
-    def _extract_sessions(movie_data: dict) -> list[dict]:
-        """Extract individual session times from movie data."""
-        sessions = []
-        # Try different possible structures
-        showtimes_data = (
-            movie_data.get("showtimes")
-            or movie_data.get("sessions")
-            or movie_data.get("shows", [])
-        )
+        Handles: '2026-03-20T14:30:00', '14:30', epoch timestamps.
+        """
+        if not starts_at:
+            return ""
 
-        if isinstance(showtimes_data, dict):
-            # Grouped by version/language
-            for version_key, version_sessions in showtimes_data.items():
-                lang = _parse_language(version_key)
-                fmt = _parse_format(version_key)
-                if isinstance(version_sessions, list):
-                    for s in version_sessions:
-                        time_str = s.get("time") or s.get("$time") or s.get("t", "")
-                        if isinstance(time_str, str) and ":" not in time_str:
-                            # Try parsing epoch
-                            try:
-                                time_str = datetime.fromtimestamp(int(time_str)).strftime("%H:%M")
-                            except (ValueError, OSError):
-                                pass
-                        sessions.append({
-                            "time": time_str,
-                            "language": lang,
-                            "format": fmt,
-                        })
-        elif isinstance(showtimes_data, list):
-            for s in showtimes_data:
-                if isinstance(s, dict):
-                    sessions.append({
-                        "time": s.get("time", s.get("$time", "")),
-                        "language": s.get("language", s.get("version", "")),
-                        "format": s.get("format", s.get("screen", "2D")),
-                    })
-                elif isinstance(s, str):
-                    sessions.append({"time": s, "language": "", "format": "2D"})
+        # ISO datetime: "2026-03-20T14:30:00"
+        if "T" in starts_at:
+            try:
+                dt = datetime.fromisoformat(starts_at.replace("Z", "+00:00"))
+                return dt.strftime("%H:%M")
+            except ValueError:
+                pass
 
-        return sessions
+        # Already "HH:MM"
+        if ":" in starts_at and len(starts_at) <= 8:
+            return starts_at[:5]
+
+        # Epoch timestamp
+        try:
+            return datetime.fromtimestamp(int(starts_at)).strftime("%H:%M")
+        except (ValueError, OSError):
+            pass
+
+        return ""
 
 
-def _parse_language(version_key: str) -> str:
-    """Parse language from version key like 'VOSE', 'local-dubbed'."""
-    key = version_key.upper()
-    if "VOSE" in key or "VOS" in key:
+def _diffusion_to_language(diffusion: str) -> str:
+    """Map diffusionVersion to readable language label."""
+    d = diffusion.upper()
+    if "ORIGINAL" in d or "VOSE" in d or "VOS" in d:
         return "VOSE"
-    if "VO" in key:
-        return "VO"
-    if "DUB" in key or "LOCAL" in key or "CAST" in key:
+    if "DUBBED" in d or "LOCAL" in d:
         return "Castellano"
-    return version_key
+    if "VO" in d:
+        return "VO"
+    return diffusion
 
 
-def _parse_format(version_key: str) -> str:
-    """Parse format from version key."""
+def _version_key_to_format(version_key: str) -> str:
+    """Infer screen format from the version key."""
     key = version_key.upper()
     if "IMAX" in key:
         return "IMAX"
@@ -213,4 +283,6 @@ def _parse_format(version_key: str) -> str:
         return "3D"
     if "4DX" in key:
         return "4DX"
+    if "ATMOS" in key:
+        return "Atmos"
     return "2D"

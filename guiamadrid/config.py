@@ -10,11 +10,8 @@ DB_PATH = DATA_DIR / "guiamadrid.db"
 # Database
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-# SensaCine
+# SensaCine (shares backend with allocine.fr)
 SENSACINE_BASE_URL = "https://www.sensacine.com"
-SENSACINE_SHOWTIMES_URL = (
-    "https://www.sensacine.com/_/showtimes/theater-{theater_id}/d-{date}/"
-)
 
 # Cines de Madrid — IDs de SensaCine
 SENSACINE_THEATER_IDS = {

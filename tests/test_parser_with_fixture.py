@@ -1,118 +1,161 @@
-"""Test the SensaCine parser against a saved fixture.
+"""Test the SensaCine parser against fixtures matching the REAL API structure.
+
+The real API (confirmed via allocine-seances package) returns:
+    {pagination: {page, totalPages}, results: [{movie: {...}, showtimes: {version: [{startsAt, diffusionVersion, internalId}]}}]}
 
 Usage:
-1. First run: python tests/probe_sensacine_api.py  (saves real JSON to fixtures/)
-2. Then run:  python tests/test_parser_with_fixture.py
-
-Or run with the built-in mock fixture (no network needed):
-    python tests/test_parser_with_fixture.py --mock
+    python tests/test_parser_with_fixture.py          # mock + real fixture if available
+    python tests/test_parser_with_fixture.py --mock    # mock only
 """
 
 import json
 import sys
 from pathlib import Path
 
-# Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from guiamadrid.scrapers.cine.sensacine import SensaCineScraper
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-# Mock fixture based on typical AlloCiné/SensaCine API structure
-MOCK_FIXTURE = {
+# Real API structure (confirmed from allocine-seances source code)
+MOCK_REAL_STRUCTURE = {
+    "pagination": {"page": 1, "totalPages": 1},
     "results": [
         {
             "movie": {
-                "id": 301843,
+                "internalId": 301843,
                 "title": "Capitán América: Brave New World",
                 "originalTitle": "Captain America: Brave New World",
-                "directors": [{"name": "Julius Onah"}],
-                "castingShort": {"directors": "Julius Onah"},
-                "genre": [{"name": "Acción"}, {"name": "Aventura"}],
-                "runtime": "1h 58min",
+                "credits": [
+                    {
+                        "position": {"name": "DIRECTOR"},
+                        "person": {"firstName": "Julius", "lastName": "Onah"},
+                    },
+                ],
+                "genres": [
+                    {"translate": "Acción"},
+                    {"translate": "Aventura"},
+                ],
+                "runtime": 7080,  # seconds → 118 min
                 "poster": {"url": "https://fr.web.img6.acsta.net/pictures/24/01/cap4.jpg"},
-                "synopsis": "Sam Wilson asume el manto del Capitán América...",
-                "userRating": 3.2,
-                "pressRating": 2.8,
+                "synopsisFull": "Sam Wilson asume el manto del Capitán América y se enfrenta a un complot internacional.",
+                "statistics": {"userRating": 3.2},
+                "releases": [{"name": "En cines", "releaseDate": {"date": "2025-02-14"}}],
+                "languages": [{"name": "Español"}],
+                "flags": {"hasDvdRelease": False},
+                "customFlags": {"isPremiere": False, "weeklyOuting": False},
             },
             "showtimes": {
                 "dubbed": [
-                    {"time": "14:30"},
-                    {"time": "17:15"},
-                    {"time": "20:00"},
-                    {"time": "22:30"},
+                    {"internalId": 1001, "startsAt": "2026-03-20T14:30:00", "diffusionVersion": "DUBBED"},
+                    {"internalId": 1002, "startsAt": "2026-03-20T17:15:00", "diffusionVersion": "DUBBED"},
+                    {"internalId": 1003, "startsAt": "2026-03-20T20:00:00", "diffusionVersion": "DUBBED"},
+                    {"internalId": 1004, "startsAt": "2026-03-20T22:30:00", "diffusionVersion": "DUBBED"},
                 ],
                 "original": [
-                    {"time": "16:00"},
-                    {"time": "21:45"},
+                    {"internalId": 2001, "startsAt": "2026-03-20T16:00:00", "diffusionVersion": "ORIGINAL"},
+                    {"internalId": 2002, "startsAt": "2026-03-20T21:45:00", "diffusionVersion": "ORIGINAL"},
                 ],
             },
         },
         {
             "movie": {
-                "id": 295937,
+                "internalId": 295937,
                 "title": "Dune: Parte Dos",
                 "originalTitle": "Dune: Part Two",
-                "directors": [{"name": "Denis Villeneuve"}],
-                "genre": [{"name": "Ciencia ficción"}, {"name": "Drama"}],
-                "runtime": "2h 46min",
+                "credits": [
+                    {
+                        "position": {"name": "DIRECTOR"},
+                        "person": {"firstName": "Denis", "lastName": "Villeneuve"},
+                    },
+                ],
+                "genres": [
+                    {"translate": "Ciencia ficción"},
+                    {"translate": "Drama"},
+                ],
+                "runtime": 9960,  # 166 min
                 "poster": {"url": "https://fr.web.img6.acsta.net/pictures/24/dune2.jpg"},
-                "synopsis": "Paul Atreides se une a los Fremen...",
-                "userRating": 4.5,
+                "synopsisFull": "Paul Atreides se une a los Fremen en una guerra contra los Harkonnen.",
+                "statistics": {"userRating": 4.5},
+                "releases": [],
+                "languages": [],
+                "flags": {},
+                "customFlags": {},
             },
             "showtimes": {
                 "original": [
-                    {"time": "15:00"},
-                    {"time": "19:30"},
+                    {"internalId": 3001, "startsAt": "2026-03-20T15:00:00", "diffusionVersion": "ORIGINAL"},
+                    {"internalId": 3002, "startsAt": "2026-03-20T19:30:00", "diffusionVersion": "ORIGINAL"},
+                ],
+                "imax": [
+                    {"internalId": 4001, "startsAt": "2026-03-20T18:00:00", "diffusionVersion": "ORIGINAL"},
                 ],
             },
         },
         {
             "movie": {
-                "id": 312456,
+                "internalId": 312456,
                 "title": "Anora",
-                "directors": [{"name": "Sean Baker"}],
-                "genre": [{"name": "Drama"}, {"name": "Comedia"}],
-                "runtime": "2h 19min",
+                "credits": [
+                    {
+                        "position": {"name": "DIRECTOR"},
+                        "person": {"firstName": "Sean", "lastName": "Baker"},
+                    },
+                ],
+                "genres": [
+                    {"translate": "Drama"},
+                    {"translate": "Comedia"},
+                ],
+                "runtime": 8340,  # 139 min
                 "poster": {"url": "https://fr.web.img6.acsta.net/pictures/24/anora.jpg"},
-                "synopsis": "Una joven stripper de Brooklyn se casa impulsivamente...",
-                "userRating": 4.1,
+                "synopsisFull": "Una joven stripper de Brooklyn se casa impulsivamente con el hijo de un oligarca ruso.",
+                "statistics": {"userRating": 4.1},
+                "releases": [],
+                "languages": [],
+                "flags": {},
+                "customFlags": {},
             },
             "showtimes": {
-                "VOSE": [
-                    {"time": "17:30"},
-                    {"time": "20:15"},
+                "original": [
+                    {"internalId": 5001, "startsAt": "2026-03-20T17:30:00", "diffusionVersion": "ORIGINAL"},
+                    {"internalId": 5002, "startsAt": "2026-03-20T20:15:00", "diffusionVersion": "ORIGINAL"},
                 ],
             },
         },
-    ]
+    ],
 }
 
-# Alternative structure (flat list)
-MOCK_FIXTURE_ALT = {
-    "movies": [
+# Test with duplicate internalIds (should be deduplicated)
+MOCK_WITH_DUPLICATES = {
+    "pagination": {"page": 1, "totalPages": 1},
+    "results": [
         {
-            "title": "Flow",
-            "id": "320001",
-            "directors": "Gints Zilbalodis",
-            "genre": "Animación",
-            "runtime": 85,
-            "synopsis": "Un gato se embarca en un viaje...",
-            "poster": "https://example.com/flow.jpg",
-            "userRating": 4.3,
-            "showtimes": [
-                {"time": "12:00", "language": "VOSE", "format": "2D"},
-                {"time": "16:30", "language": "Castellano", "format": "2D"},
-            ],
+            "movie": {
+                "internalId": 999,
+                "title": "Test Movie",
+                "credits": [],
+                "genres": [],
+                "runtime": 5400,
+            },
+            "showtimes": {
+                "dubbed": [
+                    {"internalId": 7001, "startsAt": "2026-03-20T14:00:00", "diffusionVersion": "DUBBED"},
+                    {"internalId": 7001, "startsAt": "2026-03-20T14:00:00", "diffusionVersion": "DUBBED"},  # duplicate
+                ],
+                "original": [
+                    {"internalId": 7001, "startsAt": "2026-03-20T14:00:00", "diffusionVersion": "ORIGINAL"},  # same id, diff version
+                    {"internalId": 7002, "startsAt": "2026-03-20T18:00:00", "diffusionVersion": "ORIGINAL"},
+                ],
+            },
         }
-    ]
+    ],
 }
 
 
-def test_with_fixture(data: dict, label: str):
+def test_with_fixture(data: dict, label: str, expected_count: int | None = None):
     print(f"\n{'='*60}")
-    print(f"Testing parser with: {label}")
+    print(f"Testing: {label}")
     print(f"{'='*60}")
 
     scraper = SensaCineScraper()
@@ -122,11 +165,12 @@ def test_with_fixture(data: dict, label: str):
     for st in showtimes:
         lang = f" ({st.language})" if st.language else ""
         fmt = f" [{st.format}]" if st.format != "2D" else ""
-        print(f"  {st.movie_title} | {st.showtime}{lang}{fmt}")
+        dur = f" {st.duration_min}min" if st.duration_min else ""
+        print(f"  {st.movie_title} | {st.showtime}{lang}{fmt}{dur}")
         if st.director:
-            print(f"    Dir: {st.director}")
+            print(f"    Dir: {st.director} | {st.genre}")
 
-    if not showtimes:
+    if not showtimes and expected_count != 0:
         print("  WARNING: No showtimes parsed!")
         return False
 
@@ -138,6 +182,9 @@ def test_with_fixture(data: dict, label: str):
         assert ":" in st.showtime, f"Bad time format: {st.showtime}"
         assert st.date == "2026-03-20", f"Bad date: {st.date}"
 
+    if expected_count is not None:
+        assert len(showtimes) == expected_count, f"Expected {expected_count}, got {len(showtimes)}"
+
     print(f"  ALL {len(showtimes)} showtimes validated OK")
     scraper.close()
     return True
@@ -146,9 +193,9 @@ def test_with_fixture(data: dict, label: str):
 def test_with_real_fixture():
     fixture_path = FIXTURES_DIR / "sensacine_sample.json"
     if not fixture_path.exists():
-        print(f"No real fixture at {fixture_path}")
+        print(f"\nNo real fixture at {fixture_path}")
         print("Run: python tests/probe_sensacine_api.py first")
-        return False
+        return None  # skip, not failure
 
     with open(fixture_path) as f:
         data = json.load(f)
@@ -158,31 +205,57 @@ def test_with_real_fixture():
 
 def main():
     use_mock = "--mock" in sys.argv
-
     passed = 0
     failed = 0
 
-    # Test mock fixtures
-    if test_with_fixture(MOCK_FIXTURE, "Mock fixture (results/movie/showtimes by version)"):
+    # Test 1: Real API structure
+    if test_with_fixture(MOCK_REAL_STRUCTURE, "Real API structure (3 movies, 11 showtimes)", 11):
         passed += 1
     else:
         failed += 1
 
-    if test_with_fixture(MOCK_FIXTURE_ALT, "Mock fixture alt (movies list with inline showtimes)"):
+    # Test 2: Deduplication by internalId
+    if test_with_fixture(MOCK_WITH_DUPLICATES, "Dedup by internalId (4 raw → 2 unique)", 2):
         passed += 1
     else:
         failed += 1
 
-    # Test real fixture (if available)
+    # Test 3: Field validation
+    print(f"\n{'='*60}")
+    print("Testing: Field extraction details")
+    print(f"{'='*60}")
+    scraper = SensaCineScraper()
+    sts = scraper._parse_response(MOCK_REAL_STRUCTURE, "C0094", "Yelmo Ideal", "2026-03-20")
+
+    cap = [s for s in sts if "Capitán" in s.movie_title]
+    assert len(cap) == 6, f"Expected 6 Cap América showtimes, got {len(cap)}"
+    assert cap[0].director == "Julius Onah", f"Bad director: {cap[0].director}"
+    assert cap[0].duration_min == 118, f"Bad duration: {cap[0].duration_min}"
+    assert cap[0].genre == "Acción, Aventura", f"Bad genre: {cap[0].genre}"
+    assert cap[0].rating == 3.2, f"Bad rating: {cap[0].rating}"
+    assert "acsta.net" in cap[0].poster_url, f"Bad poster: {cap[0].poster_url}"
+    dubbed = [s for s in cap if s.language == "Castellano"]
+    vose = [s for s in cap if s.language == "VOSE"]
+    assert len(dubbed) == 4, f"Expected 4 dubbed, got {len(dubbed)}"
+    assert len(vose) == 2, f"Expected 2 VOSE, got {len(vose)}"
+
+    dune = [s for s in sts if "Dune" in s.movie_title]
+    imax = [s for s in dune if s.format == "IMAX"]
+    assert len(imax) == 1, f"Expected 1 IMAX, got {len(imax)}"
+    assert dune[0].duration_min == 166, f"Bad Dune duration: {dune[0].duration_min}"
+
+    print("  All field assertions passed")
+    passed += 1
+    scraper.close()
+
+    # Test 4: Real fixture if available
     if not use_mock:
-        fixture_path = FIXTURES_DIR / "sensacine_sample.json"
-        if fixture_path.exists():
-            if test_with_real_fixture():
-                passed += 1
-            else:
-                failed += 1
-        else:
-            print(f"\nSkipping real fixture test (run probe_sensacine_api.py first)")
+        result = test_with_real_fixture()
+        if result is True:
+            passed += 1
+        elif result is False:
+            failed += 1
+        # None = skipped
 
     print(f"\n{'='*60}")
     print(f"Results: {passed} passed, {failed} failed")
