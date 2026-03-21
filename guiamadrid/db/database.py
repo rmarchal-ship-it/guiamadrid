@@ -208,6 +208,21 @@ def get_movies_for_date(target_date: str) -> list[dict]:
         session.close()
 
 
+def get_available_dates() -> list[str]:
+    """Get all dates that have showtimes, sorted descending."""
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(Showtime.date)
+            .distinct()
+            .order_by(Showtime.date.desc())
+            .all()
+        )
+        return [r[0] for r in rows]
+    finally:
+        session.close()
+
+
 def get_cinemas() -> list[dict]:
     """Get all cinemas."""
     session = SessionLocal()

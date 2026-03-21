@@ -298,6 +298,19 @@ const today = new Date().toISOString().split('T')[0];
 datePicker.value = today;
 datePicker.addEventListener('change', () => loadData());
 
+// Fetch available dates and default to most recent if today has no data
+async function initDate() {
+  try {
+    const data = await fetchJSON(`${API}/api/dates`);
+    if (data.dates && data.dates.length > 0) {
+      if (!data.dates.includes(today)) {
+        datePicker.value = data.dates[0]; // most recent date
+      }
+    }
+  } catch (e) { /* fall back to today */ }
+  loadData();
+}
+
 // Tabs
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -490,8 +503,8 @@ function esc(s) {
   return d.innerHTML;
 }
 
-// Initial load
-loadData();
+// Initial load — picks most recent date with data
+initDate();
 </script>
 </body>
 </html>

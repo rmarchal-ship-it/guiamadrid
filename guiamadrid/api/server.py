@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 from guiamadrid.db.database import (
+    get_available_dates,
     get_cinemas,
     get_movies_for_date,
     get_showtimes_for_date,
@@ -40,6 +41,13 @@ def root():
     """Serve the main HTML frontend."""
     html_file = TEMPLATES_DIR / "index.html"
     return HTMLResponse(html_file.read_text(encoding="utf-8"))
+
+
+@app.get("/api/dates")
+def dates():
+    """Get all available dates with showtimes."""
+    available = get_available_dates()
+    return {"dates": available}
 
 
 @app.get("/api/health")
