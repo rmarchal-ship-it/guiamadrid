@@ -55,10 +55,30 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
 .poster-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%;transition:transform 6s cubic-bezier(.25,.1,.25,1),opacity .5s;opacity:0;z-index:1}
 .poster-img.loaded{opacity:1}
 .movie-card:hover .poster-img.loaded{transform:scale(1.04)}
-/* CSS fallback gradient (shows behind image or when no image) */
-.poster-fallback{position:absolute;inset:0}
-.poster-shape{position:absolute;border-radius:50%;mix-blend-mode:screen;filter:blur(45px);opacity:.45;animation:float 14s ease-in-out infinite}
-.poster-shape2{position:absolute;mix-blend-mode:screen;filter:blur(65px);opacity:.3;animation:drift 18s ease-in-out infinite reverse}
+/* CSS fallback gradient — animated scene layers */
+.poster-fallback{position:absolute;inset:0;overflow:hidden}
+.poster-fallback .el{position:absolute;mix-blend-mode:screen;will-change:transform}
+/* base shape types */
+.el.orb{border-radius:50%}
+.el.bar{border-radius:2px}
+.el.ring{border-radius:50%;background:transparent !important;border:2px solid}
+.el.tri{clip-path:polygon(50% 0%,0% 100%,100% 100%);border-radius:0}
+.el.diamond{clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);border-radius:0}
+/* animation classes */
+.el.a-float{animation:scFloat 14s ease-in-out infinite}
+.el.a-drift{animation:scDrift 18s ease-in-out infinite reverse}
+.el.a-pulse{animation:scPulse 6s ease-in-out infinite}
+.el.a-rise{animation:scRise 20s linear infinite}
+.el.a-orbit{animation:scOrbit 22s linear infinite}
+.el.a-sway{animation:scSway 10s ease-in-out infinite}
+.el.a-flicker{animation:scFlicker 3s steps(4) infinite}
+.el.a-scan{animation:scScan 8s ease-in-out infinite}
+.el.a-morph{animation:scMorph 12s ease-in-out infinite}
+.el.a-spin{animation:scSpin 30s linear infinite}
+/* glow line */
+.poster-fallback .glow-line{position:absolute;height:1px;mix-blend-mode:screen;opacity:.3;animation:scScan 8s ease-in-out infinite}
+/* grain overlay inside poster */
+.poster-fallback .scene-grain{position:absolute;inset:0;opacity:.04;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 128 128' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 .poster-area::after{content:'';position:absolute;inset:0;background:linear-gradient(0deg,rgba(24,24,24,1) 0%,rgba(24,24,24,.6) 30%,rgba(0,0,0,.05) 60%,rgba(0,0,0,.3) 100%);z-index:2}
 .poster-title{position:absolute;bottom:.8rem;left:1.2rem;right:1.2rem;z-index:3;font-family:'Space Grotesk',sans-serif;font-size:1.45rem;font-weight:700;line-height:1.1;letter-spacing:-.02em;text-shadow:0 2px 12px rgba(0,0,0,.8)}
 .poster-director{position:absolute;top:.9rem;left:1.2rem;z-index:3;font-size:.7rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.5)}
@@ -100,8 +120,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
 .empty{text-align:center;padding:5rem 2rem;font-size:.9rem;color:var(--muted)}
 footer{border-top:1px solid var(--border);padding:1.5rem 2.5rem;display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted)}
 
-@keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(25px,-18px) scale(1.08)}66%{transform:translate(-18px,12px) scale(.94)}}
-@keyframes drift{0%,100%{transform:translate(0,0) rotate(0deg)}50%{transform:translate(-35px,20px) rotate(12deg)}}
+@keyframes scFloat{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(25px,-18px) scale(1.08)}66%{transform:translate(-18px,12px) scale(.94)}}
+@keyframes scDrift{0%,100%{transform:translate(0,0) rotate(0deg)}50%{transform:translate(-35px,20px) rotate(12deg)}}
+@keyframes scPulse{0%,100%{transform:scale(1);opacity:var(--o,.4)}50%{transform:scale(1.25);opacity:calc(var(--o,.4)*1.4)}}
+@keyframes scRise{0%{transform:translateY(100%) scale(.8);opacity:0}15%{opacity:var(--o,.3)}85%{opacity:var(--o,.3)}100%{transform:translateY(-120%) scale(1.1);opacity:0}}
+@keyframes scOrbit{0%{transform:rotate(0deg) translateX(var(--r,40px)) rotate(0deg)}100%{transform:rotate(360deg) translateX(var(--r,40px)) rotate(-360deg)}}
+@keyframes scSway{0%,100%{transform:translateX(0) skewX(0deg)}50%{transform:translateX(var(--sx,30px)) skewX(var(--sk,3deg))}}
+@keyframes scFlicker{0%,100%{opacity:var(--o,.5)}25%{opacity:.1}50%{opacity:var(--o,.5)}75%{opacity:.05}}
+@keyframes scScan{0%,100%{transform:translateX(-110%)}50%{transform:translateX(110%)}}
+@keyframes scMorph{0%,100%{border-radius:50% 30% 50% 70%}25%{border-radius:30% 60% 70% 40%}50%{border-radius:60% 40% 30% 50%}75%{border-radius:40% 50% 60% 30%}}
+@keyframes scSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .grid>*,.cinema-card{animation:fadeUp .4s ease both}
 .grid>*:nth-child(n){animation-delay:calc(.04s * var(--i,0))}
@@ -215,59 +243,61 @@ const POSTERS={
 'Memento (Reestreno)':'https://pics.filmaffinity.com/memento-502029-large.jpg',
 };
 
+// VIS: bg=gradient, s1/s2/s3=accent colors, sc=scene type
+// Scene types: horror,scifi,romance,action,drama,anim,thriller,docu,classic,comedy
 const VIS={
-'Amarga Navidad':{bg:'radial-gradient(ellipse at 30% 40%,#5c0a0a,#1a0000 60%,#080000)',s1:'#d32f2f',s2:'#ff8a80'},
-'Hoppers':{bg:'radial-gradient(ellipse at 55% 45%,#0d3b0d,#001a00 55%,#000800)',s1:'#66bb6a',s2:'#aed581'},
-'Torrente Presidente':{bg:'radial-gradient(ellipse at 50% 55%,#3e2723,#1a0e0a 55%,#080400)',s1:'#ff8f00',s2:'#ffe082'},
-'Your Name (Reposición)':{bg:'radial-gradient(ellipse at 38% 28%,#0a1a4e,#000a1a 55%,#000006)',s1:'#42a5f5',s2:'#ef5350'},
-'La novia':{bg:'radial-gradient(ellipse at 48% 42%,#222,#0c0c0c 55%,#000)',s1:'#e0e0e0',s2:'#757575'},
-'Scream VII':{bg:'radial-gradient(ellipse at 45% 52%,#2a0000,#0a0000 55%,#000)',s1:'#d50000',s2:'#fff'},
-'Greenland 2: El regreso':{bg:'radial-gradient(ellipse at 52% 48%,#1a2e0a,#0a1a05 55%,#000400)',s1:'#ff6d00',s2:'#33691e'},
-'Whistle: El silbido del mal':{bg:'radial-gradient(ellipse at 35% 52%,#0e0a22,#050010 55%,#000)',s1:'#7e57c2',s2:'#311b92'},
-'Perfect Blue (Reestreno)':{bg:'radial-gradient(ellipse at 48% 32%,#0a0a3a,#00001a 55%,#000005)',s1:'#1565c0',s2:'#e91e63'},
-'Elegir mi vida':{bg:'radial-gradient(ellipse at 42% 42%,#1e1608,#0a0800 55%,#000)',s1:'#ffb74d',s2:'#bcaaa4'},
-'La Grazia':{bg:'radial-gradient(ellipse at 48% 38%,#1e1810,#0a0800 55%,#000)',s1:'#ffd700',s2:'#bf360c'},
-'El mago del Kremlin':{bg:'radial-gradient(ellipse at 42% 48%,#2a0a0a,#0a0000 55%,#000)',s1:'#c62828',s2:'#fdd835'},
-'La última cena':{bg:'radial-gradient(ellipse at 52% 48%,#141414,#080808 55%,#000)',s1:'#fafafa',s2:'#616161'},
-'La sonrisa del mal':{bg:'radial-gradient(ellipse at 38% 52%,#1e0a14,#0a0008 55%,#000)',s1:'#e91e63',s2:'#880e4f'},
-'Tafiti y sus amigos':{bg:'radial-gradient(ellipse at 48% 48%,#1e1e00,#0a0a00 55%,#000)',s1:'#ffa726',s2:'#66bb6a'},
-'Una hija en Tokio':{bg:'radial-gradient(ellipse at 42% 38%,#1e0a1a,#0a0008 55%,#000)',s1:'#f48fb1',s2:'#ce93d8'},
-'Cumbres Borrascosas':{bg:'radial-gradient(ellipse at 40% 35%,#3a1a0a,#1a0800 55%,#080000)',s1:'#8d6e63',s2:'#d7ccc8'},
-'Proyecto Salvación':{bg:'radial-gradient(ellipse at 50% 40%,#0a1a3e,#000a1a 55%,#000008)',s1:'#42a5f5',s2:'#ff7043'},
-'Cleaner: Rescate vertical':{bg:'radial-gradient(ellipse at 45% 50%,#1a1a2e,#0a0a14 55%,#000)',s1:'#90caf9',s2:'#e0e0e0'},
-'Una batalla tras otra':{bg:'radial-gradient(ellipse at 48% 42%,#2a1a0a,#1a0a00 55%,#080000)',s1:'#ffd54f',s2:'#ff8a65'},
-'Iron Lung: Océano de sangre':{bg:'radial-gradient(ellipse at 42% 55%,#1a0000,#0a0000 55%,#000)',s1:'#b71c1c',s2:'#424242'},
-'Hamnet':{bg:'radial-gradient(ellipse at 38% 38%,#2a2010,#0a0800 55%,#000)',s1:'#bcaaa4',s2:'#8d6e63'},
-'Pillion':{bg:'radial-gradient(ellipse at 52% 45%,#1a0a2a,#080014 55%,#000)',s1:'#ce93d8',s2:'#f48fb1'},
-'Aida y vuelta':{bg:'radial-gradient(ellipse at 50% 48%,#0a2a1a,#001a0a 55%,#000800)',s1:'#26a69a',s2:'#fff176'},
-'El fantasma de mi mujer':{bg:'radial-gradient(ellipse at 45% 42%,#1a1a2e,#0a0a14 55%,#000)',s1:'#b39ddb',s2:'#80cbc4'},
-'La fiera':{bg:'radial-gradient(ellipse at 48% 50%,#2a1a00,#1a0a00 55%,#080000)',s1:'#ff6f00',s2:'#4e342e'},
-'Altas capacidades':{bg:'radial-gradient(ellipse at 50% 45%,#0a1a2e,#000a14 55%,#000)',s1:'#4fc3f7',s2:'#fff59d'},
-'Aves de corral':{bg:'radial-gradient(ellipse at 42% 48%,#1e1e00,#0a0a00 55%,#000)',s1:'#c0ca33',s2:'#ff5722'},
-'Tres adioses':{bg:'radial-gradient(ellipse at 40% 42%,#1a1410,#0a0800 55%,#000)',s1:'#a1887f',s2:'#90a4ae'},
-'Islas':{bg:'radial-gradient(ellipse at 50% 38%,#0a1a2e,#000a14 55%,#000)',s1:'#4dd0e1',s2:'#a5d6a7'},
-'Línea de extinción':{bg:'radial-gradient(ellipse at 38% 52%,#1a1a0a,#0a0a00 55%,#000)',s1:'#8d6e63',s2:'#607d8b'},
-'Idilia':{bg:'radial-gradient(ellipse at 48% 40%,#0a0a2a,#000014 55%,#000)',s1:'#7986cb',s2:'#4dd0e1'},
-'Los miserables: El origen':{bg:'radial-gradient(ellipse at 45% 48%,#1a1a1a,#0a0a0a 55%,#000)',s1:'#e0e0e0',s2:'#ef5350'},
-'Orwell: 2+2=5':{bg:'radial-gradient(ellipse at 42% 42%,#1e1e1e,#0a0a0a 55%,#000)',s1:'#fafafa',s2:'#f44336'},
-'La sombra de mi padre':{bg:'radial-gradient(ellipse at 48% 52%,#0a1a0a,#001a00 55%,#000)',s1:'#66bb6a',s2:'#ffcc80'},
-'Maigret y la muerte del embajador':{bg:'radial-gradient(ellipse at 42% 45%,#1a1410,#0a0800 55%,#000)',s1:'#8d6e63',s2:'#ffab91'},
-'Sorry, Baby':{bg:'radial-gradient(ellipse at 50% 42%,#2a1a1a,#0a0000 55%,#000)',s1:'#ef9a9a',s2:'#b0bec5'},
-'Scarlet':{bg:'radial-gradient(ellipse at 45% 35%,#2a0a1a,#1a0008 55%,#000)',s1:'#ef5350',s2:'#ff80ab'},
-'La extraordinaria vida de Marcel Pagnol':{bg:'radial-gradient(ellipse at 48% 45%,#1a1e0a,#0a0a00 55%,#000)',s1:'#aed581',s2:'#ffcc80'},
-'Chirp, el investigador de Honey Hills':{bg:'radial-gradient(ellipse at 50% 42%,#0a2a0a,#001a00 55%,#000800)',s1:'#81c784',s2:'#fff176'},
-'Evolution':{bg:'radial-gradient(ellipse at 48% 48%,#0a1a2e,#000a14 55%,#000)',s1:'#4fc3f7',s2:'#aed581'},
-'EPiC: Elvis Presley in Concert':{bg:'radial-gradient(ellipse at 42% 48%,#2a1a0a,#1a0a00 55%,#000)',s1:'#ffd54f',s2:'#e0e0e0'},
-'América Hispana: El legado de las olas':{bg:'radial-gradient(ellipse at 45% 45%,#1a0a00,#0a0000 55%,#000)',s1:'#d4a373',s2:'#4e342e'},
-'La vida es Verdi':{bg:'radial-gradient(ellipse at 50% 40%,#0a2a0a,#001a00 55%,#000)',s1:'#66bb6a',s2:'#e0e0e0'},
-'Socias por Accidente':{bg:'radial-gradient(ellipse at 48% 45%,#2a0a2a,#1a0014 55%,#000)',s1:'#f48fb1',s2:'#fff176'},
-'Las locas del obelisco':{bg:'radial-gradient(ellipse at 42% 48%,#1a1a1a,#0a0a0a 55%,#000)',s1:'#bdbdbd',s2:'#ff8a65'},
-'Caminando con el diablo':{bg:'radial-gradient(ellipse at 45% 52%,#1a0a0a,#0a0000 55%,#000)',s1:'#d32f2f',s2:'#424242'},
-'El último vikingo':{bg:'radial-gradient(ellipse at 48% 42%,#0a1a2e,#000a14 55%,#000)',s1:'#81d4fa',s2:'#e0e0e0'},
-'Manas':{bg:'radial-gradient(ellipse at 42% 45%,#0a2a1a,#001a0a 55%,#000)',s1:'#4db6ac',s2:'#ffcc80'},
-'Un altre home':{bg:'radial-gradient(ellipse at 48% 48%,#1a1a1a,#0a0a0a 55%,#000)',s1:'#90a4ae',s2:'#bcaaa4'},
-'El Graduado (Reestreno)':{bg:'radial-gradient(ellipse at 45% 42%,#1a1a0a,#0a0a00 55%,#000)',s1:'#ffcc80',s2:'#a5d6a7'},
-'Memento (Reestreno)':{bg:'radial-gradient(ellipse at 42% 48%,#0a0a1e,#00000a 55%,#000)',s1:'#42a5f5',s2:'#e0e0e0'},
+'Amarga Navidad':{bg:'radial-gradient(ellipse at 30% 40%,#5c0a0a,#1a0000 60%,#080000)',s1:'#d32f2f',s2:'#ff8a80',s3:'#b71c1c',sc:'drama'},
+'Hoppers':{bg:'radial-gradient(ellipse at 55% 45%,#0d3b0d,#001a00 55%,#000800)',s1:'#66bb6a',s2:'#aed581',s3:'#fff176',sc:'anim'},
+'Torrente Presidente':{bg:'radial-gradient(ellipse at 50% 55%,#3e2723,#1a0e0a 55%,#080400)',s1:'#ff8f00',s2:'#ffe082',s3:'#d84315',sc:'comedy'},
+'Your Name (Reposición)':{bg:'radial-gradient(ellipse at 38% 28%,#0a1a4e,#000a1a 55%,#000006)',s1:'#42a5f5',s2:'#ef5350',s3:'#ce93d8',sc:'romance'},
+'La novia':{bg:'radial-gradient(ellipse at 48% 42%,#222,#0c0c0c 55%,#000)',s1:'#e0e0e0',s2:'#757575',s3:'#d50000',sc:'thriller'},
+'Scream VII':{bg:'radial-gradient(ellipse at 45% 52%,#2a0000,#0a0000 55%,#000)',s1:'#d50000',s2:'#fff',s3:'#880e4f',sc:'horror'},
+'Greenland 2: El regreso':{bg:'radial-gradient(ellipse at 52% 48%,#1a2e0a,#0a1a05 55%,#000400)',s1:'#ff6d00',s2:'#33691e',s3:'#fdd835',sc:'action'},
+'Whistle: El silbido del mal':{bg:'radial-gradient(ellipse at 35% 52%,#0e0a22,#050010 55%,#000)',s1:'#7e57c2',s2:'#311b92',s3:'#e0e0e0',sc:'horror'},
+'Perfect Blue (Reestreno)':{bg:'radial-gradient(ellipse at 48% 32%,#0a0a3a,#00001a 55%,#000005)',s1:'#1565c0',s2:'#e91e63',s3:'#7c4dff',sc:'thriller'},
+'Elegir mi vida':{bg:'radial-gradient(ellipse at 42% 42%,#1e1608,#0a0800 55%,#000)',s1:'#ffb74d',s2:'#bcaaa4',s3:'#fff9c4',sc:'drama'},
+'La Grazia':{bg:'radial-gradient(ellipse at 48% 38%,#1e1810,#0a0800 55%,#000)',s1:'#ffd700',s2:'#bf360c',s3:'#ffe082',sc:'drama'},
+'El mago del Kremlin':{bg:'radial-gradient(ellipse at 42% 48%,#2a0a0a,#0a0000 55%,#000)',s1:'#c62828',s2:'#fdd835',s3:'#ff6f00',sc:'thriller'},
+'La última cena':{bg:'radial-gradient(ellipse at 52% 48%,#141414,#080808 55%,#000)',s1:'#fafafa',s2:'#616161',s3:'#fdd835',sc:'thriller'},
+'La sonrisa del mal':{bg:'radial-gradient(ellipse at 38% 52%,#1e0a14,#0a0008 55%,#000)',s1:'#e91e63',s2:'#880e4f',s3:'#ce93d8',sc:'horror'},
+'Tafiti y sus amigos':{bg:'radial-gradient(ellipse at 48% 48%,#1e1e00,#0a0a00 55%,#000)',s1:'#ffa726',s2:'#66bb6a',s3:'#fff176',sc:'anim'},
+'Una hija en Tokio':{bg:'radial-gradient(ellipse at 42% 38%,#1e0a1a,#0a0008 55%,#000)',s1:'#f48fb1',s2:'#ce93d8',s3:'#80cbc4',sc:'drama'},
+'Cumbres Borrascosas':{bg:'radial-gradient(ellipse at 40% 35%,#3a1a0a,#1a0800 55%,#080000)',s1:'#8d6e63',s2:'#d7ccc8',s3:'#ef5350',sc:'romance'},
+'Proyecto Salvación':{bg:'radial-gradient(ellipse at 50% 40%,#0a1a3e,#000a1a 55%,#000008)',s1:'#42a5f5',s2:'#ff7043',s3:'#81d4fa',sc:'scifi'},
+'Cleaner: Rescate vertical':{bg:'radial-gradient(ellipse at 45% 50%,#1a1a2e,#0a0a14 55%,#000)',s1:'#90caf9',s2:'#e0e0e0',s3:'#ff8a65',sc:'action'},
+'Una batalla tras otra':{bg:'radial-gradient(ellipse at 48% 42%,#2a1a0a,#1a0a00 55%,#080000)',s1:'#ffd54f',s2:'#ff8a65',s3:'#d32f2f',sc:'action'},
+'Iron Lung: Océano de sangre':{bg:'radial-gradient(ellipse at 42% 55%,#1a0000,#0a0000 55%,#000)',s1:'#b71c1c',s2:'#424242',s3:'#d50000',sc:'scifi'},
+'Hamnet':{bg:'radial-gradient(ellipse at 38% 38%,#2a2010,#0a0800 55%,#000)',s1:'#bcaaa4',s2:'#8d6e63',s3:'#d7ccc8',sc:'drama'},
+'Pillion':{bg:'radial-gradient(ellipse at 52% 45%,#1a0a2a,#080014 55%,#000)',s1:'#ce93d8',s2:'#f48fb1',s3:'#7c4dff',sc:'romance'},
+'Aida y vuelta':{bg:'radial-gradient(ellipse at 50% 48%,#0a2a1a,#001a0a 55%,#000800)',s1:'#26a69a',s2:'#fff176',s3:'#ff8a65',sc:'comedy'},
+'El fantasma de mi mujer':{bg:'radial-gradient(ellipse at 45% 42%,#1a1a2e,#0a0a14 55%,#000)',s1:'#b39ddb',s2:'#80cbc4',s3:'#e0e0e0',sc:'comedy'},
+'La fiera':{bg:'radial-gradient(ellipse at 48% 50%,#2a1a00,#1a0a00 55%,#080000)',s1:'#ff6f00',s2:'#4e342e',s3:'#fdd835',sc:'action'},
+'Altas capacidades':{bg:'radial-gradient(ellipse at 50% 45%,#0a1a2e,#000a14 55%,#000)',s1:'#4fc3f7',s2:'#fff59d',s3:'#ff8a65',sc:'comedy'},
+'Aves de corral':{bg:'radial-gradient(ellipse at 42% 48%,#1e1e00,#0a0a00 55%,#000)',s1:'#c0ca33',s2:'#ff5722',s3:'#fdd835',sc:'comedy'},
+'Tres adioses':{bg:'radial-gradient(ellipse at 40% 42%,#1a1410,#0a0800 55%,#000)',s1:'#a1887f',s2:'#90a4ae',s3:'#d7ccc8',sc:'drama'},
+'Islas':{bg:'radial-gradient(ellipse at 50% 38%,#0a1a2e,#000a14 55%,#000)',s1:'#4dd0e1',s2:'#a5d6a7',s3:'#81d4fa',sc:'drama'},
+'Línea de extinción':{bg:'radial-gradient(ellipse at 38% 52%,#1a1a0a,#0a0a00 55%,#000)',s1:'#8d6e63',s2:'#607d8b',s3:'#a1887f',sc:'thriller'},
+'Idilia':{bg:'radial-gradient(ellipse at 48% 40%,#0a0a2a,#000014 55%,#000)',s1:'#7986cb',s2:'#4dd0e1',s3:'#b39ddb',sc:'scifi'},
+'Los miserables: El origen':{bg:'radial-gradient(ellipse at 45% 48%,#1a1a1a,#0a0a0a 55%,#000)',s1:'#e0e0e0',s2:'#ef5350',s3:'#fdd835',sc:'drama'},
+'Orwell: 2+2=5':{bg:'radial-gradient(ellipse at 42% 42%,#1e1e1e,#0a0a0a 55%,#000)',s1:'#fafafa',s2:'#f44336',s3:'#616161',sc:'docu'},
+'La sombra de mi padre':{bg:'radial-gradient(ellipse at 48% 52%,#0a1a0a,#001a00 55%,#000)',s1:'#66bb6a',s2:'#ffcc80',s3:'#a5d6a7',sc:'drama'},
+'Maigret y la muerte del embajador':{bg:'radial-gradient(ellipse at 42% 45%,#1a1410,#0a0800 55%,#000)',s1:'#8d6e63',s2:'#ffab91',s3:'#d7ccc8',sc:'thriller'},
+'Sorry, Baby':{bg:'radial-gradient(ellipse at 50% 42%,#2a1a1a,#0a0000 55%,#000)',s1:'#ef9a9a',s2:'#b0bec5',s3:'#f48fb1',sc:'drama'},
+'Scarlet':{bg:'radial-gradient(ellipse at 45% 35%,#2a0a1a,#1a0008 55%,#000)',s1:'#ef5350',s2:'#ff80ab',s3:'#7c4dff',sc:'anim'},
+'La extraordinaria vida de Marcel Pagnol':{bg:'radial-gradient(ellipse at 48% 45%,#1a1e0a,#0a0a00 55%,#000)',s1:'#aed581',s2:'#ffcc80',s3:'#81c784',sc:'anim'},
+'Chirp, el investigador de Honey Hills':{bg:'radial-gradient(ellipse at 50% 42%,#0a2a0a,#001a00 55%,#000800)',s1:'#81c784',s2:'#fff176',s3:'#4db6ac',sc:'anim'},
+'Evolution':{bg:'radial-gradient(ellipse at 48% 48%,#0a1a2e,#000a14 55%,#000)',s1:'#4fc3f7',s2:'#aed581',s3:'#fff176',sc:'anim'},
+'EPiC: Elvis Presley in Concert':{bg:'radial-gradient(ellipse at 42% 48%,#2a1a0a,#1a0a00 55%,#000)',s1:'#ffd54f',s2:'#e0e0e0',s3:'#ff8a65',sc:'docu'},
+'América Hispana: El legado de las olas':{bg:'radial-gradient(ellipse at 45% 45%,#1a0a00,#0a0000 55%,#000)',s1:'#d4a373',s2:'#4e342e',s3:'#8d6e63',sc:'docu'},
+'La vida es Verdi':{bg:'radial-gradient(ellipse at 50% 40%,#0a2a0a,#001a00 55%,#000)',s1:'#66bb6a',s2:'#e0e0e0',s3:'#81c784',sc:'docu'},
+'Socias por Accidente':{bg:'radial-gradient(ellipse at 48% 45%,#2a0a2a,#1a0014 55%,#000)',s1:'#f48fb1',s2:'#fff176',s3:'#ce93d8',sc:'comedy'},
+'Las locas del obelisco':{bg:'radial-gradient(ellipse at 42% 48%,#1a1a1a,#0a0a0a 55%,#000)',s1:'#bdbdbd',s2:'#ff8a65',s3:'#d7ccc8',sc:'drama'},
+'Caminando con el diablo':{bg:'radial-gradient(ellipse at 45% 52%,#1a0a0a,#0a0000 55%,#000)',s1:'#d32f2f',s2:'#424242',s3:'#ff6f00',sc:'thriller'},
+'El último vikingo':{bg:'radial-gradient(ellipse at 48% 42%,#0a1a2e,#000a14 55%,#000)',s1:'#81d4fa',s2:'#e0e0e0',s3:'#4fc3f7',sc:'comedy'},
+'Manas':{bg:'radial-gradient(ellipse at 42% 45%,#0a2a1a,#001a0a 55%,#000)',s1:'#4db6ac',s2:'#ffcc80',s3:'#a5d6a7',sc:'drama'},
+'Un altre home':{bg:'radial-gradient(ellipse at 48% 48%,#1a1a1a,#0a0a0a 55%,#000)',s1:'#90a4ae',s2:'#bcaaa4',s3:'#607d8b',sc:'drama'},
+'El Graduado (Reestreno)':{bg:'radial-gradient(ellipse at 45% 42%,#1a1a0a,#0a0a00 55%,#000)',s1:'#ffcc80',s2:'#a5d6a7',s3:'#8d6e63',sc:'classic'},
+'Memento (Reestreno)':{bg:'radial-gradient(ellipse at 42% 48%,#0a0a1e,#00000a 55%,#000)',s1:'#42a5f5',s2:'#e0e0e0',s3:'#1565c0',sc:'classic'},
 };
 
 // === SEARCH ===
@@ -304,12 +334,187 @@ function renderStats(f){
 }
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
+// Seeded pseudo-random for deterministic scenes per title
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++)h=((h<<5)-h+s.charCodeAt(i))|0;return h}
+function seededRng(seed){let s=seed;return()=>{s=s*16807%2147483647;return(s-1)/2147483646}}
+
+// Scene generators per type — each returns array of element descriptors
+const SCENES={
+  horror(v,rng){
+    const els=[];
+    // Pulsing core glow
+    els.push({t:'orb',a:'a-pulse',c:v.s1,x:35+rng()*30,y:30+rng()*30,w:200+rng()*80,o:.35,bl:50});
+    // Flickering small orbs
+    for(let i=0;i<4;i++){
+      const d=rng()*4;
+      els.push({t:'orb',a:'a-flicker',c:v.s2,x:10+rng()*80,y:10+rng()*80,w:20+rng()*40,o:.3+rng()*.2,bl:15+rng()*20,del:d});
+    }
+    // Dripping bar shapes
+    for(let i=0;i<3;i++){
+      els.push({t:'bar',a:'a-rise',c:v.s1,x:15+rng()*70,y:0,w:2+rng()*4,h:40+rng()*60,o:.25,bl:3,del:rng()*8});
+    }
+    // Dark morphing mass
+    els.push({t:'orb',a:'a-morph',c:v.s3||v.s1,x:50+rng()*30,y:40+rng()*30,w:120+rng()*60,o:.2,bl:40});
+    els.push({line:true,c:v.s1,y:30+rng()*40,w:60+rng()*40});
+    return els;
+  },
+  scifi(v,rng){
+    const els=[];
+    // Orbiting particles
+    for(let i=0;i<5;i++){
+      els.push({t:'orb',a:'a-orbit',c:i%2?v.s1:v.s2,x:40+rng()*20,y:35+rng()*20,w:8+rng()*16,o:.5+rng()*.3,bl:4+rng()*8,r:30+i*18,del:i*4});
+    }
+    // Central glow
+    els.push({t:'orb',a:'a-pulse',c:v.s1,x:45+rng()*10,y:40+rng()*10,w:140+rng()*60,o:.25,bl:55});
+    // Geometric accents
+    els.push({t:'diamond',a:'a-spin',c:v.s2,x:25+rng()*50,y:20+rng()*40,w:40+rng()*30,o:.2,bl:8,del:rng()*6});
+    els.push({t:'ring',a:'a-float',c:v.s3||v.s2,x:60+rng()*20,y:25+rng()*30,w:60+rng()*40,o:.15,bl:2});
+    // Scan line
+    els.push({line:true,c:v.s1,y:20+rng()*60,w:80+rng()*20});
+    return els;
+  },
+  romance(v,rng){
+    const els=[];
+    // Soft flowing orbs
+    els.push({t:'orb',a:'a-float',c:v.s1,x:25+rng()*20,y:25+rng()*20,w:180+rng()*80,o:.3,bl:60});
+    els.push({t:'orb',a:'a-drift',c:v.s2,x:55+rng()*20,y:45+rng()*20,w:140+rng()*60,o:.25,bl:50});
+    // Gentle morphing shapes
+    els.push({t:'orb',a:'a-morph',c:v.s3||v.s1,x:40+rng()*20,y:35+rng()*20,w:100+rng()*50,o:.2,bl:35});
+    // Rising particles
+    for(let i=0;i<4;i++){
+      els.push({t:'orb',a:'a-rise',c:i%2?v.s1:v.s2,x:15+rng()*70,y:0,w:6+rng()*12,o:.3+rng()*.2,bl:6+rng()*10,del:rng()*12});
+    }
+    // Warm sway
+    els.push({t:'orb',a:'a-sway',c:v.s2,x:30+rng()*40,y:50+rng()*20,w:80+rng()*40,o:.15,bl:45,sx:25});
+    return els;
+  },
+  action(v,rng){
+    const els=[];
+    // Sharp diagonal bars
+    for(let i=0;i<4;i++){
+      els.push({t:'bar',a:'a-sway',c:i%2?v.s1:v.s2,x:10+rng()*80,y:10+rng()*80,w:3+rng()*5,h:80+rng()*100,o:.3,bl:4+rng()*8,rot:30+rng()*40,sx:40+rng()*30,del:rng()*4});
+    }
+    // Explosive core
+    els.push({t:'orb',a:'a-pulse',c:v.s1,x:40+rng()*20,y:35+rng()*20,w:160+rng()*60,o:.3,bl:40});
+    // Sparks
+    for(let i=0;i<3;i++){
+      els.push({t:'diamond',a:'a-rise',c:v.s3||v.s2,x:20+rng()*60,y:0,w:8+rng()*12,o:.4,bl:3,del:rng()*10});
+    }
+    // Angular accent
+    els.push({t:'tri',a:'a-float',c:v.s2,x:55+rng()*25,y:30+rng()*30,w:50+rng()*30,o:.15,bl:10});
+    return els;
+  },
+  drama(v,rng){
+    const els=[];
+    // Slow deep orbs — contemplative
+    els.push({t:'orb',a:'a-float',c:v.s1,x:30+rng()*20,y:30+rng()*20,w:180+rng()*60,o:.3,bl:55});
+    els.push({t:'orb',a:'a-drift',c:v.s2,x:55+rng()*20,y:50+rng()*20,w:130+rng()*50,o:.2,bl:50});
+    // Morphing atmospheric shape
+    els.push({t:'orb',a:'a-morph',c:v.s3||v.s1,x:35+rng()*30,y:35+rng()*25,w:100+rng()*60,o:.18,bl:40});
+    // Subtle rising particles
+    for(let i=0;i<2;i++){
+      els.push({t:'orb',a:'a-rise',c:v.s2,x:20+rng()*60,y:0,w:4+rng()*8,o:.2,bl:8+rng()*12,del:rng()*15});
+    }
+    // Gentle horizontal sway
+    els.push({t:'orb',a:'a-sway',c:v.s1,x:45+rng()*10,y:60+rng()*15,w:70+rng()*40,o:.12,bl:45,sx:15});
+    return els;
+  },
+  anim(v,rng){
+    const els=[];
+    // Bouncy colorful orbs
+    for(let i=0;i<5;i++){
+      const colors=[v.s1,v.s2,v.s3||v.s1];
+      els.push({t:'orb',a:'a-float',c:colors[i%3],x:10+rng()*80,y:10+rng()*70,w:40+rng()*60,o:.4+rng()*.2,bl:20+rng()*15,del:rng()*6});
+    }
+    // Big playful morph
+    els.push({t:'orb',a:'a-morph',c:v.s1,x:35+rng()*30,y:30+rng()*30,w:120+rng()*60,o:.25,bl:30});
+    // Spinning diamond
+    els.push({t:'diamond',a:'a-spin',c:v.s2,x:60+rng()*20,y:20+rng()*20,w:30+rng()*20,o:.3,bl:5,del:rng()*4});
+    // Playful ring
+    els.push({t:'ring',a:'a-drift',c:v.s3||v.s2,x:20+rng()*30,y:50+rng()*20,w:50+rng()*30,o:.2,bl:2});
+    return els;
+  },
+  thriller(v,rng){
+    const els=[];
+    // Tense angular shapes
+    els.push({t:'orb',a:'a-pulse',c:v.s1,x:40+rng()*20,y:35+rng()*20,w:160+rng()*50,o:.25,bl:45});
+    // Flickering accents
+    for(let i=0;i<3;i++){
+      els.push({t:'bar',a:'a-flicker',c:v.s2,x:20+rng()*60,y:15+rng()*60,w:30+rng()*60,h:1+rng()*2,o:.3,bl:3,del:rng()*3});
+    }
+    // Sharp geometric
+    els.push({t:'tri',a:'a-sway',c:v.s3||v.s1,x:50+rng()*30,y:30+rng()*30,w:50+rng()*40,o:.15,bl:12,sx:20});
+    // Slow orbiting ring
+    els.push({t:'ring',a:'a-orbit',c:v.s2,x:40+rng()*20,y:40+rng()*20,w:80+rng()*40,o:.1,bl:3,r:20+rng()*30,del:rng()*8});
+    // Scan line
+    els.push({line:true,c:v.s1,y:35+rng()*30,w:70+rng()*30});
+    return els;
+  },
+  docu(v,rng){
+    const els=[];
+    // Film-grain inspired horizontal bars
+    for(let i=0;i<5;i++){
+      els.push({t:'bar',a:'a-sway',c:i%2?v.s1:v.s2,x:0,y:10+i*18+rng()*5,w:100,h:1,o:.15+rng()*.1,bl:2+rng()*4,sx:10+rng()*15,del:rng()*6,fullW:true});
+    }
+    // Central subject glow
+    els.push({t:'orb',a:'a-float',c:v.s1,x:40+rng()*20,y:35+rng()*20,w:140+rng()*50,o:.2,bl:50});
+    // Accent morph
+    els.push({t:'orb',a:'a-morph',c:v.s3||v.s2,x:50+rng()*20,y:45+rng()*20,w:80+rng()*40,o:.12,bl:35});
+    return els;
+  },
+  classic(v,rng){
+    const els=[];
+    // Vintage flickering glow
+    els.push({t:'orb',a:'a-flicker',c:v.s1,x:35+rng()*30,y:30+rng()*30,w:180+rng()*60,o:.25,bl:50,del:0});
+    // Soft depth layers
+    els.push({t:'orb',a:'a-drift',c:v.s2,x:45+rng()*20,y:40+rng()*20,w:120+rng()*50,o:.2,bl:45});
+    // Film-frame bars (top/bottom)
+    els.push({t:'bar',a:'a-sway',c:v.s1,x:0,y:5,w:100,h:2,o:.12,bl:2,sx:8,fullW:true});
+    els.push({t:'bar',a:'a-sway',c:v.s1,x:0,y:90,w:100,h:2,o:.12,bl:2,sx:8,del:2,fullW:true});
+    // Orbiting ring — nostalgic
+    els.push({t:'ring',a:'a-orbit',c:v.s3||v.s1,x:45+rng()*10,y:40+rng()*10,w:50+rng()*30,o:.12,bl:2,r:25,del:rng()*6});
+    return els;
+  },
+  comedy(v,rng){
+    const els=[];
+    // Bouncy bright orbs
+    for(let i=0;i<4;i++){
+      const colors=[v.s1,v.s2,v.s3||v.s1];
+      els.push({t:'orb',a:'a-float',c:colors[i%3],x:15+rng()*70,y:15+rng()*60,w:50+rng()*60,o:.35+rng()*.15,bl:25+rng()*15,del:rng()*5});
+    }
+    // Big sway shape
+    els.push({t:'orb',a:'a-sway',c:v.s1,x:35+rng()*30,y:35+rng()*25,w:130+rng()*50,o:.2,bl:40,sx:35});
+    // Spinning accent
+    els.push({t:'diamond',a:'a-spin',c:v.s2,x:60+rng()*20,y:25+rng()*20,w:25+rng()*20,o:.25,bl:6,del:rng()*3});
+    return els;
+  }
+};
+
 function posterHTML(title){
   const url=POSTERS[title];
-  const v=VIS[title]||{bg:'radial-gradient(ellipse at 50% 50%,#1a1a1a,#000)',s1:'#555',s2:'#333'};
+  const v=VIS[title]||{bg:'radial-gradient(ellipse at 50% 50%,#1a1a1a,#000)',s1:'#555',s2:'#333',s3:'#444',sc:'drama'};
+  const rng=seededRng(Math.abs(hashStr(title))||1);
+  const gen=SCENES[v.sc||'drama']||SCENES.drama;
+  const els=gen(v,rng);
   let h='<div class="poster-area"><div class="poster-fallback" style="background:'+v.bg+'">';
-  h+='<div class="poster-shape" style="background:'+v.s1+';left:30%;top:30%;width:180px;height:180px"></div>';
-  h+='<div class="poster-shape2" style="background:'+v.s2+';left:60%;top:55%;width:140px;height:140px"></div></div>';
+  h+='<div class="scene-grain"></div>';
+  els.forEach(e=>{
+    if(e.line){
+      h+='<div class="glow-line" style="background:'+e.c+';top:'+e.y+'%;width:'+e.w+'%;left:'+(50-e.w/2)+'%"></div>';
+      return;
+    }
+    let s='background:'+e.c+';left:'+e.x+'%;top:'+e.y+'%;opacity:'+e.o+';';
+    if(e.fullW){s+='width:100%;height:'+e.h+'px;left:0;'}
+    else{s+='width:'+e.w+'px;height:'+(e.h||e.w)+'px;'}
+    if(e.bl)s+='filter:blur('+e.bl+'px);';
+    if(e.del)s+='animation-delay:-'+e.del+'s;';
+    if(e.r)s+='--r:'+e.r+'px;';
+    if(e.sx)s+='--sx:'+e.sx+'px;';
+    if(e.rot)s+='transform:rotate('+e.rot+'deg);';
+    if(e.t==='ring')s+='border-color:'+e.c+';';
+    h+='<div class="el '+e.t+' '+e.a+'" style="'+s+'"></div>';
+  });
+  h+='</div>';
   if(url&&!url.includes('placeholder'))h+='<img class="poster-img" src="'+url+'" alt="" loading="lazy" onload="this.classList.add(\'loaded\')" onerror="this.style.display=\'none\'">';
   return h;
 }
