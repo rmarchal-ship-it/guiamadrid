@@ -269,22 +269,28 @@ async function searchTMDB(title){
 }
 
 async function fetchAllPosters(){
-  const cached=loadPosterCache();
-  if(cached){POSTERS=cached;return}
-  const titles=[...new Set(S.map(s=>s.m))];
-  const results={};
-  // Batch in groups of 8 to respect rate limits
-  for(let i=0;i<titles.length;i+=8){
-    const batch=titles.slice(i,i+8);
-    const promises=batch.map(async t=>{
-      const url=await searchTMDB(t);
-      if(url)results[t]=url;
-    });
-    await Promise.all(promises);
-  }
-  POSTERS=results;
-  savePosterCache(results);
-  render();
+  try{
+    const cached=loadPosterCache();
+    if(cached&&Object.keys(cached).length>0){POSTERS=cached;render();return}
+    const titles=[...new Set(S.map(s=>s.m))];
+    const results={};
+    // Batch in groups of 8 to respect rate limits
+    for(let i=0;i<titles.length;i+=8){
+      const batch=titles.slice(i,i+8);
+      const promises=batch.map(async t=>{
+        try{
+          const url=await searchTMDB(t);
+          if(url)results[t]=url;
+        }catch(e){}
+      });
+      await Promise.all(promises);
+    }
+    if(Object.keys(results).length>0){
+      POSTERS=results;
+      savePosterCache(results);
+      render();
+    }
+  }catch(e){console.warn('TMDB fetch failed:',e)}
 }
 
 // Animated GIFs — preferred over static posters
@@ -639,9 +645,9 @@ function renderCinemas(f){
   }).join('');
 }
 
-// Initial render with CSS animations, then fetch real posters
+// Initial render with CSS animations, then fetch real posters in background
 render();
-fetchAllPosters();
+fetchAllPosters().catch(function(){});
 </script>
 </body>
 </html>
