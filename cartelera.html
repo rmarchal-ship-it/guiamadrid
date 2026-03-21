@@ -198,86 +198,98 @@ const RAW={"date":"2026-03-20","s":[{"c":"Artistic Metropol","m":"Amarga Navidad
 const S=RAW.s,M=RAW.m,C=RAW.c;
 let view='movies',vose=false,searchQuery='';
 
-// === TMDB AUTO-POSTER SYSTEM ===
-// 1. Pon tu API key gratuita de TMDB: https://www.themoviedb.org/settings/api
-// 2. El sistema busca pósters automáticamente y los cachea 7 días
-const TMDB_API_KEY=''; // ← Pon aquí tu API key v3 de TMDB (gratuita)
-const TMDB_IMG='https://image.tmdb.org/t/p/';
-const TMDB_CACHE_KEY='guiamadrid_posters_v3';
-const TMDB_CACHE_DAYS=7;
+// === AUTO-POSTER SYSTEM ===
+// Busca imágenes automáticamente en Wikipedia (gratis, sin API key)
+// Cachea en localStorage 7 días
+const POSTER_CACHE_KEY='guiamadrid_posters_v4';
+const POSTER_CACHE_DAYS=7;
 let POSTERS={};
 
-// TMDB movie IDs — búsqueda directa por ID (más fiable que por título)
-const TMDB_IDS={
-'Perfect Blue (Reestreno)':10494,
-'Your Name (Reposición)':372058,
-'Scream VII':1159559,
-'Memento (Reestreno)':77,
-'El Graduado (Reestreno)':37247,
-'Greenland 2: El regreso':840464,
-'La novia':1159831,
-'Iron Lung: Océano de sangre':1116201,
-'Cleaner: Rescate vertical':1125899,
-'Proyecto Salvación':687163,
-'Cumbres Borrascosas':1316092,
-'Hoppers':1327819,
-'Hamnet':858024,
-};
-
-// Títulos alternativos para búsqueda cuando no hay ID
-const TITLE_MAP={
-'Whistle: El silbido del mal':'Whistle 2025',
-'Tafiti y sus amigos':'Tafiti',
-'Chirp, el investigador de Honey Hills':'Chirp animated',
-'La extraordinaria vida de Marcel Pagnol':'Marcel et Monsieur Pagnol',
-'Los miserables: El origen':'Les Misérables',
-'Una hija en Tokio':'Une part manquante',
-'Elegir mi vida':'Partir un jour',
-'Maigret y la muerte del embajador':'Maigret',
-'Tres adioses':'Tre Ciotole',
-'La sonrisa del mal':'The Holy Boy',
-'Una batalla tras otra':'One Battle After Another',
-'Torrente Presidente':'Torrente',
-'Pillion':'Pillion 2025',
-'Sorry, Baby':'Sorry Baby 2025',
-'Scarlet':'Scarlet Hosoda',
-'EPiC: Elvis Presley in Concert':'Elvis Presley Concert',
-'América Hispana: El legado de las olas':'América Hispana',
+// Wikipedia article names (en/es) for each movie
+const WIKI_ARTICLES={
+'Perfect Blue (Reestreno)':['en','Perfect_Blue'],
+'Your Name (Reposición)':['en','Your_Name'],
+'Scream VII':['en','Scream_VII'],
+'Memento (Reestreno)':['en','Memento_(film)'],
+'El Graduado (Reestreno)':['en','The_Graduate'],
+'Greenland 2: El regreso':['en','Greenland:_Migration'],
+'La novia':['en','The_Bride!_(film)'],
+'Iron Lung: Océano de sangre':['en','Iron_Lung_(film)'],
+'Cleaner: Rescate vertical':['en','Cleaner_(film)'],
+'Proyecto Salvación':['en','Project_Hail_Mary_(film)'],
+'Cumbres Borrascosas':['en','Wuthering_Heights_(2026_film)'],
+'Hoppers':['en','Hoppers_(film)'],
+'Hamnet':['en','Hamnet_(film)'],
+'Torrente Presidente':['es','Torrente_6'],
+'Pillion':['en','Pillion_(film)'],
+'Sorry, Baby':['en','Sorry,_Baby'],
+'Scarlet':['en','Scarlet_(2025_film)'],
+'Los miserables: El origen':['en','Les_Misérables_(2025_film)'],
+'Elegir mi vida':['fr','Partir_un_jour'],
+'Una hija en Tokio':['fr','Une_part_manquante'],
+'La extraordinaria vida de Marcel Pagnol':['fr','Marcel_et_Monsieur_Pagnol'],
+'Maigret y la muerte del embajador':['fr','Maigret_(film,_2025)'],
+'Tres adioses':['it','Tre_ciotole'],
+'La Grazia':['it','La_Grazia'],
+'Una batalla tras otra':['en','One_Battle_After_Another'],
+'La sonrisa del mal':['en','The_Holy_Boy'],
+'EPiC: Elvis Presley in Concert':['en','Elvis_Presley'],
+'Whistle: El silbido del mal':['en','Whistle_(2025_film)'],
+'La fiera':['es','La_fiera_(película)'],
+'Tafiti y sus amigos':['de','Tafiti_(Film)'],
+'Chirp, el investigador de Honey Hills':['en','Chirp_(film)'],
+'Evolution':['en','Evolution_(2025_film)'],
+'La vida es Verdi':['en','Giuseppe_Verdi'],
+'Orwell: 2+2=5':['en','George_Orwell'],
+'El mago del Kremlin':['fr','Le_Mage_du_Kremlin_(film)'],
+'La última cena':['en','The_Last_Supper_(2025_film)'],
+'Idilia':['es','Idilia_(película)'],
+'Islas':['es','Islas_(película)'],
+'Amarga Navidad':['es','Amarga_Navidad'],
+'Altas capacidades':['es','Altas_capacidades_(película)'],
+'Aida y vuelta':['es','Aida_y_vuelta'],
 };
 
 function loadPosterCache(){
   try{
-    const raw=localStorage.getItem(TMDB_CACHE_KEY);
+    const raw=localStorage.getItem(POSTER_CACHE_KEY);
     if(!raw)return null;
     const data=JSON.parse(raw);
-    if(Date.now()-data.ts>TMDB_CACHE_DAYS*86400000)return null;
+    if(Date.now()-data.ts>POSTER_CACHE_DAYS*86400000)return null;
     return data.posters;
   }catch(e){return null}
 }
 function savePosterCache(p){
-  try{localStorage.setItem(TMDB_CACHE_KEY,JSON.stringify({ts:Date.now(),posters:p}))}catch(e){}
+  try{localStorage.setItem(POSTER_CACHE_KEY,JSON.stringify({ts:Date.now(),posters:p}))}catch(e){}
 }
 
-// Buscar por ID de TMDB (más fiable)
-async function fetchByID(id){
-  const r=await fetch('https://api.themoviedb.org/3/movie/'+id+'?api_key='+TMDB_API_KEY+'&language=es-ES');
-  if(!r.ok)return null;
-  const d=await r.json();
-  const path=d.backdrop_path||d.poster_path;
-  return path?TMDB_IMG+'w1280'+path:null;
+// Buscar imagen en Wikipedia REST API (gratis, sin key)
+async function wikiImage(lang,article){
+  try{
+    const r=await fetch('https://'+lang+'.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(article));
+    if(!r.ok)return null;
+    const d=await r.json();
+    // originalimage es mayor resolución que thumbnail
+    const img=d.originalimage||d.thumbnail;
+    if(img&&img.source)return img.source;
+  }catch(e){}
+  return null;
 }
 
-// Buscar por título (fallback)
-async function fetchByTitle(title){
-  const q=TITLE_MAP[title]||title.replace(/\s*\(.*?\)\s*/g,'').replace(/:.*/,'').trim();
-  for(const lang of['es-ES','en-US','fr-FR']){
+// Búsqueda por título en Wikipedia (fallback cuando no hay artículo mapeado)
+async function wikiSearch(title){
+  const clean=title.replace(/\s*\(.*?\)\s*/g,'').replace(/:.*/,'').trim();
+  for(const lang of['es','en','fr']){
     try{
-      const r=await fetch('https://api.themoviedb.org/3/search/movie?api_key='+TMDB_API_KEY+'&query='+encodeURIComponent(q)+'&language='+lang);
+      const r=await fetch('https://'+lang+'.wikipedia.org/w/api.php?action=query&list=search&srsearch='+encodeURIComponent(clean+' película film')+'&format=json&origin=*&srlimit=3');
       if(!r.ok)continue;
       const d=await r.json();
-      if(d.results&&d.results[0]){
-        const path=d.results[0].backdrop_path||d.results[0].poster_path;
-        if(path)return TMDB_IMG+'w1280'+path;
+      const results=d.query&&d.query.search;
+      if(!results||!results.length)continue;
+      // Try each result
+      for(const sr of results){
+        const img=await wikiImage(lang,sr.title.replace(/ /g,'_'));
+        if(img)return img;
       }
     }catch(e){}
   }
@@ -285,28 +297,30 @@ async function fetchByTitle(title){
 }
 
 async function fetchAllPosters(){
-  if(!TMDB_API_KEY){console.info('GuiaMadrid: Pon tu TMDB API key en TMDB_API_KEY para cargar pósters automáticamente. Gratis en https://www.themoviedb.org/settings/api');return}
   try{
     const cached=loadPosterCache();
     if(cached&&Object.keys(cached).length>5){POSTERS=cached;render();return}
     const titles=[...new Set(S.map(s=>s.m))];
     const results={};
-    for(let i=0;i<titles.length;i+=6){
-      const batch=titles.slice(i,i+6);
+    // Batch de 4 para no saturar Wikipedia
+    for(let i=0;i<titles.length;i+=4){
+      const batch=titles.slice(i,i+4);
       await Promise.all(batch.map(async t=>{
         try{
-          const id=TMDB_IDS[t];
-          const url=id?await fetchByID(id):await fetchByTitle(t);
-          if(url)results[t]=url;
+          const wiki=WIKI_ARTICLES[t];
+          let url=null;
+          if(wiki) url=await wikiImage(wiki[0],wiki[1]);
+          if(!url) url=await wikiSearch(t);
+          if(url) results[t]=url;
         }catch(e){}
       }));
     }
     if(Object.keys(results).length>0){
-      POSTERS=results;
-      savePosterCache(results);
+      POSTERS={...POSTERS,...results};
+      savePosterCache(POSTERS);
       render();
     }
-  }catch(e){console.warn('TMDB fetch error:',e)}
+  }catch(e){console.warn('Poster fetch error:',e)}
 }
 
 // Animated GIFs — preferred over static posters
