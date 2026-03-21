@@ -310,47 +310,61 @@ async function fetchAllPosters(){
 }
 
 // Animated GIFs — preferred over static posters
-// Cinema brand colors & initials for logo placeholders
-const CINEMA_BRANDS={
-'Artistic Metropol':{color:'#c62828',initials:'AM'},
-'Capitol Gran Vía':{color:'#f9a825',initials:'CG'},
-'Cine Doré (Filmoteca)':{color:'#e65100',initials:'FE'},
-'Cines Callao':{color:'#1565c0',initials:'CC'},
-'Cines Embajadores':{color:'#6a1b9a',initials:'CE'},
-'Cines Golem':{color:'#2e7d32',initials:'Go'},
-'Cines Renoir Princesa':{color:'#00838f',initials:'RP'},
-'Cines Verdi':{color:'#ad1457',initials:'CV'},
-'Cinesa Equinoccio':{color:'#0d47a1',initials:'Ci'},
-'Cinesa La Gavia':{color:'#0d47a1',initials:'Ci'},
-'Cinesa Las Rozas':{color:'#0d47a1',initials:'Ci'},
-'Cinesa Manoteras':{color:'#0d47a1',initials:'Ci'},
-'Cinesa Méndez Álvaro':{color:'#0d47a1',initials:'Ci'},
-'Cinesa Nassica':{color:'#0d47a1',initials:'Ci'},
-'Cinesa Parquesur':{color:'#0d47a1',initials:'Ci'},
-'Cinesa Proyecciones':{color:'#0d47a1',initials:'Ci'},
-'Cinesa Príncipe Pío':{color:'#0d47a1',initials:'Ci'},
-'Cineteca Madrid (Matadero)':{color:'#e53935',initials:'CT'},
-'Kinépolis Ciudad de la Imagen':{color:'#ff6f00',initials:'Kp'},
-'Kinépolis Diversia':{color:'#ff6f00',initials:'Kp'},
-'Pequeño Cine Estudio':{color:'#5d4037',initials:'PE'},
-'Renoir Plaza de España':{color:'#00838f',initials:'RE'},
-'Renoir Retiro':{color:'#00838f',initials:'RR'},
-'Sala Berlanga':{color:'#37474f',initials:'SB'},
-'Sala Equis':{color:'#d84315',initials:'SX'},
-'Yelmo Ideal':{color:'#b71c1c',initials:'Yi'},
-'Yelmo Islazul':{color:'#b71c1c',initials:'Yi'},
-'Yelmo La Vaguada':{color:'#b71c1c',initials:'Yv'},
-'Yelmo Luxury Palafox':{color:'#b71c1c',initials:'YP'},
-'Yelmo Plaza Norte 2':{color:'#b71c1c',initials:'Yp'},
-'Yelmo Plenilunio':{color:'#b71c1c',initials:'Yp'},
-'Yelmo Tres Aguas':{color:'#b71c1c',initials:'Yt'},
-'mk2 Cine Paz':{color:'#212121',initials:'m2'},
-'mk2 Palacio de Hielo':{color:'#212121',initials:'m2'},
+// Cinema logos: Wikimedia images for chains, Google favicons for independents
+const CINEMA_LOGOS={
+'Cinesa':'https://upload.wikimedia.org/wikipedia/commons/4/4f/Cinesa_2017_Logo.svg',
+'Yelmo':'https://upload.wikimedia.org/wikipedia/commons/8/8a/Cine_Yelmo_2020_Logo.svg',
+'mk2':'https://upload.wikimedia.org/wikipedia/commons/4/4e/MK2_symbol_%28outline%29.svg',
+'Cine Doré (Filmoteca)':'https://upload.wikimedia.org/wikipedia/commons/6/68/Cine_Dore_Madrid_2008_1.jpg',
+'Cines Callao':'https://upload.wikimedia.org/wikipedia/commons/8/86/Cine_Callao%2C_Madrid%2C_Spain_2012.jpg',
+'Capitol Gran Vía':'https://upload.wikimedia.org/wikipedia/commons/5/55/Edificio_Carri%C3%B3n_2007.jpg',
+};
+// Website domains for Google favicon fallback
+const CINEMA_DOMAINS={
+'Artistic Metropol':'artisticmetropol.es',
+'Cines Embajadores':'cinesembajadores.es',
+'Cines Golem':'golem.es',
+'Cines Renoir Princesa':'cinesrenoir.com',
+'Cines Verdi':'madrid.cines-verdi.com',
+'Cineteca Madrid (Matadero)':'mataderomadrid.org',
+'Kinépolis Ciudad de la Imagen':'kinepolis.es',
+'Kinépolis Diversia':'kinepolis.es',
+'Pequeño Cine Estudio':'pequenocinestudio.com',
+'Renoir Plaza de España':'cinesrenoir.com',
+'Renoir Retiro':'cinesrenoir.com',
+'Sala Berlanga':'salaberlanga.com',
+'Sala Equis':'salaequis.es',
+};
+const CINEMA_COLORS={
+'Cinesa':'#0d47a1','Yelmo':'#b71c1c','mk2':'#212121','Kinépolis':'#ff6f00',
+'Renoir':'#00838f','Golem':'#2e7d32','Verdi':'#ad1457',
+'Artistic':'#c62828','Capitol':'#f9a825','Doré':'#e65100',
+'Callao':'#1565c0','Embajadores':'#6a1b9a','Cineteca':'#e53935',
+'Sala Equis':'#d84315','Sala Berlanga':'#37474f','Pequeño':'#5d4037',
 };
 
 function cinemaLogoHTML(name){
-  const b=CINEMA_BRANDS[name]||{color:'#424242',initials:name.slice(0,2)};
-  return '<div class="cinema-logo-placeholder" style="background:'+b.color+'">'+b.initials+'</div>';
+  // Find chain logo (Cinesa, Yelmo, mk2)
+  const chain=Object.keys(CINEMA_LOGOS).find(k=>name.startsWith(k)||name.includes(k));
+  if(chain){
+    return '<img class="cinema-logo" src="'+CINEMA_LOGOS[chain]+'" alt="" onerror="this.outerHTML=cinemaFallback(\''+esc(name)+'\')">';
+  }
+  // Direct logo match
+  if(CINEMA_LOGOS[name]){
+    return '<img class="cinema-logo" src="'+CINEMA_LOGOS[name]+'" alt="" onerror="this.outerHTML=cinemaFallback(\''+esc(name)+'\')">';
+  }
+  // Google favicon
+  const domain=CINEMA_DOMAINS[name];
+  if(domain){
+    return '<img class="cinema-logo" src="https://www.google.com/s2/favicons?domain='+domain+'&sz=128" alt="" onerror="this.outerHTML=cinemaFallback(\''+esc(name)+'\')">';
+  }
+  return cinemaFallback(name);
+}
+function cinemaFallback(name){
+  const colorKey=Object.keys(CINEMA_COLORS).find(k=>name.includes(k));
+  const color=CINEMA_COLORS[colorKey||'']||'#424242';
+  const initials=name.replace(/^(Cines?a?|Yelmo|mk2|Kinépolis|Renoir|Sala)\s*/i,'').slice(0,2)||name.slice(0,2);
+  return '<div class="cinema-logo-placeholder" style="background:'+color+'">'+initials+'</div>';
 }
 
 const GIFS={
