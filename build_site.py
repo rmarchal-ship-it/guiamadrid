@@ -347,6 +347,7 @@ def scrape_all_cinemas(target_date: date) -> tuple[list[dict], list[dict], list[
             "poster_url": mv["poster_url"],
             "rating": mv["rating"],
             "synopsis": mv["synopsis"],
+            "sensacine_id": mv["sensacine_id"],
             "tmdb_id": None,  # will be filled later
         })
 
@@ -386,6 +387,52 @@ def fetch_poster_tmdb_scrape(tmdb_id: int) -> str:
     except Exception as e:
         print(f"    TMDB scrape {tmdb_id}: {e}")
     return ""
+
+
+def fetch_ratings(movies: list[dict]) -> None:
+    """Fetch user ratings from individual SensaCine movie pages."""
+    missing = [m for m in movies if not m.get("rating") and m.get("sensacine_id")]
+    if not missing:
+        print("  All movies already have ratings.")
+        return
+
+    print(f"  Fetching ratings for {len(missing)} movies...")
+    found = 0
+    for mv in missing:
+        sid = mv["sensacine_id"]
+        url = f"{SENSACINE_BASE_URL}/_/entities/movie/{sid}"
+        try:
+            data = _fetch_json(url)
+            # Try multiple rating fields
+            rating = None
+            stats = data.get("statistics") or {}
+            if isinstance(stats, dict):
+                for key in ("userRating", "pressRating"):
+                    val = stats.get(key)
+                    if val is not None:
+                        try:
+                            rating = float(val)
+                            break
+                        except (ValueError, TypeError):
+                            pass
+            if rating is None:
+                for key in ("userRating", "pressRating"):
+                    val = data.get(key)
+                    if val is not None:
+                        try:
+                            rating = float(val)
+                            break
+                        except (ValueError, TypeError):
+                            pass
+            if rating and rating > 0:
+                mv["rating"] = rating
+                found += 1
+                print(f"    {mv['title']}: {rating}")
+        except Exception as e:
+            print(f"    {mv['title']}: error ({e})")
+        time.sleep(REQUEST_DELAY)
+
+    print(f"  Found {found}/{len(missing)} ratings.")
 
 
 def fill_missing_posters(movies: list[dict], tmdb_ids: dict[str, int]) -> None:
@@ -716,8 +763,12 @@ def main() -> int:
         (PROJECT_ROOT / "sensacine_test.json").write_text(json.dumps(debug, indent=2, ensure_ascii=False), encoding="utf-8")
         return 1
 
-    # --- Step 2: Merge TMDB IDs ---
-    print("\n[2/4] Merging TMDB IDs...")
+    # --- Step 2: Fetch ratings ---
+    print("\n[2/5] Fetching ratings from SensaCine...")
+    fetch_ratings(movies)
+
+    # --- Step 3: Merge TMDB IDs ---
+    print("\n[3/5] Merging TMDB IDs...")
     # Keep existing TMDB IDs for movies that are still showing
     current_titles = {m["title"] for m in movies}
     tmdb_ids: dict[str, int] = {}
@@ -731,12 +782,12 @@ def main() -> int:
             mv["tmdb_id"] = tid
     print(f"  {len(tmdb_ids)} TMDB IDs carried over for current movies.")
 
-    # --- Step 3: Fill missing posters ---
-    print("\n[3/4] Checking posters...")
+    # --- Step 4: Fill missing posters ---
+    print("\n[4/5] Checking posters...")
     fill_missing_posters(movies, tmdb_ids)
 
-    # --- Step 4: Find trailers ---
-    print("\n[4/4] Finding YouTube trailers...")
+    # --- Step 5: Find trailers ---
+    print("\n[5/5] Finding YouTube trailers...")
     # Only keep existing trailers for movies still showing
     relevant_trailers = {t: v for t, v in existing_trailers.items() if t in current_titles}
     trailers = find_trailers(movies, relevant_trailers)
