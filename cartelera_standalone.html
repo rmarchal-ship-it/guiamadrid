@@ -221,7 +221,12 @@
   .movie-card .info { flex: 1; min-width: 0; }
   .movie-card .title { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; line-height: 1.3; }
   .movie-card .meta { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
-  .movie-card .synopsis { font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .movie-card .synopsis {
+    font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem; line-height: 1.4;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    cursor: pointer;
+  }
+  .movie-card .synopsis.expanded { -webkit-line-clamp: unset; display: block; }
   .movie-card .rating {
     display: inline-flex; align-items: center; gap: 0.25rem;
     color: var(--gold); font-weight: 600; font-size: 0.9rem; margin-top: 0.3rem;
@@ -567,7 +572,7 @@ function renderMovies() {
     const metaParts = [mv.director, mv.genre, mv.duration_min ? `${mv.duration_min} min` : null].filter(Boolean);
 
     const synopsisHtml = mv.synopsis
-      ? `<div class="synopsis">${esc(mv.synopsis)}</div>` : '';
+      ? `<div class="synopsis" onclick="event.stopPropagation();this.classList.toggle('expanded')">${esc(mv.synopsis)}</div>` : '';
 
     const cinemaGroups = Object.entries(byCinema).map(([cinema, sts]) => {
       const chips = sts
