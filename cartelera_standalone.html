@@ -81,6 +81,54 @@
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; position: relative; overflow: hidden;
   }
+  /* YouTube thumbnail poster */
+  .yt-poster {
+    width: 100px; height: 150px; border-radius: 6px;
+    position: relative; overflow: hidden; flex-shrink: 0;
+    cursor: pointer; background: var(--border);
+  }
+  .yt-poster img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.3s, filter 0.3s;
+  }
+  .yt-poster:hover img { transform: scale(1.05); filter: brightness(0.7); }
+  .yt-poster .play-btn {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 32px; height: 32px; background: rgba(229,69,96,0.9);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .yt-poster:hover .play-btn { opacity: 1; }
+  .yt-poster .play-btn::after {
+    content: ''; width: 0; height: 0;
+    border-style: solid; border-width: 6px 0 6px 11px;
+    border-color: transparent transparent transparent #fff;
+    margin-left: 2px;
+  }
+  /* Trailer modal */
+  .trailer-modal {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.92); display: none;
+    align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .trailer-modal.active { display: flex; }
+  .trailer-modal .modal-content {
+    position: relative; width: 100%; max-width: 800px;
+    aspect-ratio: 16/9; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+  }
+  .trailer-modal iframe {
+    width: 100%; height: 100%; border: none;
+  }
+  .trailer-modal .close-btn {
+    position: absolute; top: -36px; right: 0;
+    background: none; border: none; color: #fff;
+    font-size: 1.6rem; cursor: pointer; padding: 0.2rem 0.5rem;
+    opacity: 0.7; transition: opacity 0.2s;
+  }
+  .trailer-modal .close-btn:hover { opacity: 1; }
   /* Genre-based animated poster styles */
   .gen-poster {
     width: 100px; height: 150px; border-radius: 6px;
@@ -239,6 +287,14 @@
   <div class="tab" data-tab="cines">Cines</div>
 </div>
 
+<!-- Trailer modal -->
+<div class="trailer-modal" id="trailerModal" onclick="closeTrailer(event)">
+  <div class="modal-content">
+    <button class="close-btn" onclick="closeTrailer()">&times;</button>
+    <iframe id="trailerFrame" allowfullscreen allow="autoplay"></iframe>
+  </div>
+</div>
+
 <div class="content">
   <div id="peliculas-tab">
     <div class="stats" id="stats"></div>
@@ -275,6 +331,24 @@ const TMDB_IDS = {
   "La Grazia": 1397364,
   "El mago del Kremlin": 1291659,
   "La última cena": 1380415,
+};
+
+// YouTube trailer IDs (verified via web search)
+// Thumbnails: https://img.youtube.com/vi/{ID}/hqdefault.jpg (free, no API)
+// Run find_trailers.py locally to refresh/verify these IDs
+const YOUTUBE_TRAILERS = {
+  "Amarga Navidad": "SNbVMk-nLu4",
+  "Hoppers": "OBn29gbpnSI",
+  "Scream VII": "0QdDjriUuh0",
+  "Greenland 2: El regreso": "H8ieN10lX40",
+  "Whistle: El silbido del mal": "imb8bQdtEZI",
+  "La novia": "85se1vCri78",
+  "Elegir mi vida": "qcyZMsj0TDA",
+  "La sonrisa del mal": "U3BzQoxoJI8",
+  "Una hija en Tokio": "8cSeaNlr4Dw",
+  "Perfect Blue (Reestreno)": "VYq4vBxMFHs",
+  "Your Name (Reposición)": "o4-URMnBOPU",
+  "La Grazia": "zvQn44a_IHo",
 };
 
 // Genre visual themes: [gradient, icon, extra CSS class]
@@ -477,10 +551,22 @@ function renderMovies() {
       byCinema[s.cinema].push(s);
     });
 
+    const ytId = YOUTUBE_TRAILERS[mv.title];
     const hasPoster = posterCache[mv.title];
-    const posterHtml = hasPoster
-      ? `<img class="poster" src="${posterCache[mv.title]}" alt="${esc(mv.title)}" loading="lazy" onerror="this.outerHTML=generatePosterHtml('${esc(mv.title).replace(/'/g,"\\'")}','${esc(mv.genre||'').replace(/'/g,"\\'")}')">`
-      : `<div data-poster-title="${esc(mv.title)}">${generatePosterHtml(mv.title, mv.genre)}</div>`;
+    let posterHtml;
+    if (ytId) {
+      // YouTube thumbnail with play button
+      posterHtml = `<div class="yt-poster" onclick="openTrailer('${ytId}')" title="Ver tráiler">
+        <img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" alt="${esc(mv.title)}" loading="lazy"
+          onerror="this.parentElement.outerHTML=generatePosterHtml('${esc(mv.title).replace(/'/g,"\\'")}','${esc(mv.genre||'').replace(/'/g,"\\'")}')">
+        <div class="play-btn"></div>
+      </div>`;
+    } else if (hasPoster) {
+      posterHtml = `<img class="poster" src="${posterCache[mv.title]}" alt="${esc(mv.title)}" loading="lazy"
+        onerror="this.outerHTML=generatePosterHtml('${esc(mv.title).replace(/'/g,"\\'")}','${esc(mv.genre||'').replace(/'/g,"\\'")}')">`;
+    } else {
+      posterHtml = `<div data-poster-title="${esc(mv.title)}">${generatePosterHtml(mv.title, mv.genre)}</div>`;
+    }
 
     const ratingHtml = mv.rating
       ? `<div class="rating">★ ${mv.rating.toFixed(1)}</div>` : '';
@@ -562,6 +648,24 @@ renderMovies();
 
 // Fetch posters asynchronously (updates UI when ready)
 fetchPosters();
+
+// Trailer modal
+function openTrailer(ytId) {
+  const modal = document.getElementById('trailerModal');
+  const frame = document.getElementById('trailerFrame');
+  frame.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1`;
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeTrailer(e) {
+  if (e && e.target !== e.currentTarget && !e.target.classList.contains('close-btn')) return;
+  const modal = document.getElementById('trailerModal');
+  const frame = document.getElementById('trailerFrame');
+  frame.src = '';
+  modal.classList.remove('active');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrailer(); });
 </script>
 </body>
 </html>
