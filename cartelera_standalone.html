@@ -78,9 +78,94 @@
   }
   .movie-card .poster-placeholder {
     width: 100px; height: 150px; border-radius: 6px;
-    background: linear-gradient(135deg, var(--border) 0%, #2a2a4e 100%);
     display: flex; align-items: center; justify-content: center;
-    color: var(--muted); font-size: 2.5rem; flex-shrink: 0;
+    flex-shrink: 0; position: relative; overflow: hidden;
+  }
+  /* Genre-based animated poster styles */
+  .gen-poster {
+    width: 100px; height: 150px; border-radius: 6px;
+    position: relative; overflow: hidden; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    padding: 0.4rem; text-align: center;
+  }
+  .gen-poster .gp-title {
+    font-size: 0.55rem; font-weight: 700; color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8); z-index: 2;
+    line-height: 1.2; max-height: 3rem; overflow: hidden;
+    letter-spacing: 0.3px; text-transform: uppercase;
+  }
+  .gen-poster .gp-genre {
+    font-size: 0.45rem; color: rgba(255,255,255,0.7);
+    text-transform: uppercase; letter-spacing: 1px; z-index: 2;
+    margin-bottom: 0.2rem;
+  }
+  .gen-poster .gp-icon {
+    font-size: 1.8rem; z-index: 2; margin-bottom: 0.3rem;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+  }
+  .gen-poster::before {
+    content: ''; position: absolute; inset: 0; z-index: 1;
+    background: inherit; opacity: 0.15;
+  }
+  /* Animated grain overlay */
+  .gen-poster::after {
+    content: ''; position: absolute; inset: -50%; z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+    background-size: 128px 128px;
+    animation: grain 4s steps(8) infinite;
+    pointer-events: none;
+  }
+  @keyframes grain {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-5%, -5%); }
+    30% { transform: translate(3%, -8%); }
+    50% { transform: translate(-3%, 5%); }
+    70% { transform: translate(7%, 2%); }
+    90% { transform: translate(-2%, 4%); }
+  }
+  /* Floating particles for animated genres */
+  .gen-poster .gp-particles {
+    position: absolute; inset: 0; z-index: 1; overflow: hidden;
+  }
+  .gen-poster .gp-particles span {
+    position: absolute; border-radius: 50%; opacity: 0.4;
+    animation: float-up 4s ease-in infinite;
+  }
+  @keyframes float-up {
+    0% { transform: translateY(100%) scale(0); opacity: 0; }
+    20% { opacity: 0.6; }
+    100% { transform: translateY(-100%) scale(1); opacity: 0; }
+  }
+  /* Scan line for thriller */
+  .gp-scanline {
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: rgba(255,255,255,0.15); z-index: 2;
+    animation: scan 3s linear infinite;
+  }
+  @keyframes scan {
+    0% { top: -2px; } 100% { top: 100%; }
+  }
+  /* Flicker for terror */
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96% { opacity: 0.4; }
+    97% { opacity: 0.9; }
+    98% { opacity: 0.3; }
+  }
+  /* Shimmer for drama */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  /* Pulse glow for sci-fi */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: inset 0 0 15px rgba(0,200,255,0.2); }
+    50% { box-shadow: inset 0 0 25px rgba(0,200,255,0.5); }
+  }
+  /* Bounce for animation genre */
+  @keyframes bounce-icon {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
   }
   .movie-card .info { flex: 1; min-width: 0; }
   .movie-card .title { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; line-height: 1.3; }
@@ -192,30 +277,88 @@ const TMDB_IDS = {
   "La última cena": 1380415,
 };
 
+// Genre visual themes: [gradient, icon, extra CSS class]
+const GENRE_THEMES = {
+  'Terror':     { grad: 'linear-gradient(160deg, #1a0000 0%, #4a0e0e 40%, #8b0000 100%)', icon: '🩸', fx: 'flicker' },
+  'Misterio':   { grad: 'linear-gradient(160deg, #0a0a1a 0%, #1a1a3e 50%, #2d1b4e 100%)', icon: '🔍', fx: 'scan' },
+  'Thriller':   { grad: 'linear-gradient(160deg, #0a1a0a 0%, #1a2e1a 50%, #2e3e1e 100%)', icon: '🗡️', fx: 'scan' },
+  'Drama':      { grad: 'linear-gradient(160deg, #1a1a2e 0%, #2a1a3e 50%, #3a2a5e 100%)', icon: '🎭', fx: 'shimmer' },
+  'Comedia':    { grad: 'linear-gradient(160deg, #2e2a00 0%, #4e3a00 50%, #6e5a10 100%)', icon: '😂', fx: 'bounce' },
+  'Acción':     { grad: 'linear-gradient(160deg, #1a0a00 0%, #3e1a00 50%, #6e3a00 100%)', icon: '💥', fx: 'pulse' },
+  'Ciencia ficción': { grad: 'linear-gradient(160deg, #001a2e 0%, #002a4e 50%, #004a6e 100%)', icon: '🚀', fx: 'pulse' },
+  'Animación':  { grad: 'linear-gradient(160deg, #1a0a2e 0%, #2e1a5e 30%, #e94560 70%, #f5c518 100%)', icon: '✨', fx: 'bounce' },
+  'Romance':    { grad: 'linear-gradient(160deg, #2e0a1a 0%, #4e1a2a 50%, #6e2a4a 100%)', icon: '💕', fx: 'shimmer' },
+  'Documental': { grad: 'linear-gradient(160deg, #1a1a0a 0%, #2e2a1a 50%, #4e3e2a 100%)', icon: '🎞️', fx: 'grain-heavy' },
+  'Música':     { grad: 'linear-gradient(160deg, #0a1a2e 0%, #1a2e4e 50%, #3a4e6e 100%)', icon: '🎵', fx: 'bounce' },
+  'Aventura':   { grad: 'linear-gradient(160deg, #0a2e1a 0%, #1a4e2a 50%, #2a6e3a 100%)', icon: '🗺️', fx: 'shimmer' },
+  'Ciclo':      { grad: 'linear-gradient(160deg, #1a1a1a 0%, #2a2a2a 50%, #3a3a3a 100%)', icon: '🎬', fx: 'grain-heavy' },
+};
+
+function getGenreTheme(genreStr) {
+  if (!genreStr) return { grad: 'linear-gradient(160deg, #1a1a2e, #2a2a4e)', icon: '🎬', fx: '' };
+  const genres = genreStr.split(',').map(g => g.trim());
+  // Try each genre in order of specificity
+  for (const g of genres) {
+    if (GENRE_THEMES[g]) return GENRE_THEMES[g];
+  }
+  return { grad: 'linear-gradient(160deg, #1a1a2e, #2a2a4e)', icon: '🎬', fx: '' };
+}
+
+function generatePosterHtml(title, genre) {
+  const theme = getGenreTheme(genre);
+  const genres = (genre || '').split(',').map(g => g.trim());
+
+  // Create animated particles (colors based on genre)
+  let particles = '';
+  const colors = {
+    'Terror': ['#ff0000','#8b0000','#ff4444'],
+    'Animación': ['#e94560','#f5c518','#64b5f6','#81c784','#ce93d8'],
+    'Acción': ['#ff6600','#ff9900','#ffcc00'],
+    'Ciencia ficción': ['#00ccff','#0088ff','#00ffcc'],
+    'Romance': ['#ff69b4','#ff1493','#ff6eb4'],
+    'Comedia': ['#f5c518','#ffcc00','#ff9900'],
+    'Música': ['#64b5f6','#42a5f5','#90caf9'],
+  };
+  const pColors = colors[genres[0]] || ['#ffffff','#aaaaaa','#888888'];
+  for (let i = 0; i < 6; i++) {
+    const c = pColors[i % pColors.length];
+    const left = 10 + Math.floor((i * 37 + 13) % 80);
+    const size = 3 + (i % 4);
+    const delay = (i * 0.7).toFixed(1);
+    particles += `<span style="left:${left}%;width:${size}px;height:${size}px;background:${c};animation-delay:${delay}s"></span>`;
+  }
+
+  // FX elements
+  let fxHtml = '';
+  if (theme.fx === 'scan') fxHtml = '<div class="gp-scanline"></div>';
+
+  // Animation style per fx
+  let fxStyle = '';
+  if (theme.fx === 'flicker') fxStyle = 'animation: flicker 3s infinite;';
+  if (theme.fx === 'shimmer') fxStyle = 'background-size: 200% 100%; animation: shimmer 4s ease infinite;';
+  if (theme.fx === 'pulse') fxStyle = 'animation: pulse-glow 2.5s ease-in-out infinite;';
+
+  let iconStyle = '';
+  if (theme.fx === 'bounce') iconStyle = 'animation: bounce-icon 2s ease-in-out infinite;';
+
+  return `<div class="gen-poster" style="background:${theme.grad};${fxStyle}">
+    <div class="gp-particles">${particles}</div>
+    ${fxHtml}
+    <div class="gp-icon" style="${iconStyle}">${theme.icon}</div>
+    <div class="gp-genre">${genres[0] || ''}</div>
+    <div class="gp-title">${title.replace(/ *\(.*\)$/, '')}</div>
+  </div>`;
+}
+
 // Poster cache
 const posterCache = {};
 
-// Fetch posters from TMDB (runs in user's browser)
+// Try to fetch real posters from TMDB (optional enhancement)
 async function fetchPosters() {
+  const apiKey = localStorage.getItem('tmdb_api_key') || '';
+  if (!apiKey) return; // Generated posters are already shown
+
   const apiBase = 'https://api.themoviedb.org/3/movie/';
-
-  // Try with stored API key, or prompt user
-  let apiKey = localStorage.getItem('tmdb_api_key') || '';
-
-  // If no key, try without auth (won't work but won't crash)
-  if (!apiKey) {
-    // Show a subtle prompt to add TMDB key
-    const banner = document.createElement('div');
-    banner.style.cssText = 'background:#1a1a2e;border:1px solid #2a2a3e;border-radius:8px;padding:0.8rem 1.2rem;margin:0 2rem 1rem;font-size:0.85rem;color:#888;display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;';
-    banner.innerHTML = `
-      <span>Para ver los pósters, introduce tu API key de <a href="https://www.themoviedb.org/settings/api" target="_blank" style="color:#e94560">TMDB</a> (gratis):</span>
-      <input type="text" id="tmdb-key-input" placeholder="Tu API key v3" style="background:#0f0f0f;color:#eee;border:1px solid #2a2a3e;border-radius:4px;padding:0.3rem 0.6rem;font-size:0.85rem;width:280px;">
-      <button onclick="saveTmdbKey()" style="background:#e94560;color:#fff;border:none;border-radius:4px;padding:0.3rem 0.8rem;cursor:pointer;font-size:0.85rem;">Guardar</button>
-    `;
-    document.querySelector('.content').prepend(banner);
-    return;
-  }
-
   for (const [title, tmdbId] of Object.entries(TMDB_IDS)) {
     try {
       const resp = await fetch(`${apiBase}${tmdbId}?api_key=${apiKey}&language=es-ES`);
@@ -228,18 +371,7 @@ async function fetchPosters() {
     } catch(e) { /* silently skip */ }
   }
 
-  // If TMDB API didn't work (no valid token), try fallback poster search
-  if (Object.keys(posterCache).length === 0) {
-    // Use TMDB image URL pattern with common poster paths
-    // These are stable TMDB image URLs that work without auth
-    const fallbackPosters = {
-      "Perfect Blue (Reestreno)": "https://image.tmdb.org/t/p/w500/79vujUDBMnGFaQqb0hPNdJ1JWmC.jpg",
-      "Your Name (Reposición)": "https://image.tmdb.org/t/p/w500/q719jXXEhI1THMotlPeGKiAGSn.jpg",
-    };
-    Object.assign(posterCache, fallbackPosters);
-  }
-
-  // Update poster images in DOM
+  // Replace generated posters with real ones
   document.querySelectorAll('[data-poster-title]').forEach(el => {
     const title = el.dataset.posterTitle;
     if (posterCache[title]) {
@@ -248,18 +380,10 @@ async function fetchPosters() {
       img.src = posterCache[title];
       img.alt = title;
       img.loading = 'lazy';
-      img.onerror = () => { img.outerHTML = '<div class="poster-placeholder">🎬</div>'; };
+      img.onerror = () => { /* keep generated poster on error */ };
       el.replaceWith(img);
     }
   });
-}
-
-function saveTmdbKey() {
-  const key = document.getElementById('tmdb-key-input').value.trim();
-  if (key) {
-    localStorage.setItem('tmdb_api_key', key);
-    location.reload();
-  }
 }
 
 let allShowtimes = EMBEDDED_SHOWTIMES;
@@ -355,8 +479,8 @@ function renderMovies() {
 
     const hasPoster = posterCache[mv.title];
     const posterHtml = hasPoster
-      ? `<img class="poster" src="${posterCache[mv.title]}" alt="${esc(mv.title)}" loading="lazy" onerror="this.outerHTML=\'<div class=poster-placeholder>🎬</div>\'">`
-      : `<div class="poster-placeholder" data-poster-title="${esc(mv.title)}">🎬</div>`;
+      ? `<img class="poster" src="${posterCache[mv.title]}" alt="${esc(mv.title)}" loading="lazy" onerror="this.outerHTML=generatePosterHtml('${esc(mv.title).replace(/'/g,"\\'")}','${esc(mv.genre||'').replace(/'/g,"\\'")}')">`
+      : `<div data-poster-title="${esc(mv.title)}">${generatePosterHtml(mv.title, mv.genre)}</div>`;
 
     const ratingHtml = mv.rating
       ? `<div class="rating">★ ${mv.rating.toFixed(1)}</div>` : '';
