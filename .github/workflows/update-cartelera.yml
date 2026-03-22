@@ -60,17 +60,18 @@ jobs:
               exit(1)
           PYEOF
 
-      - name: Commit test result on failure
+      - name: Run build pipeline
+        run: python build_site.py
+
+      - name: Commit debug info on failure
         if: failure()
         run: |
+          [ -f sensacine_test.json ] || echo '{"no_debug_file": true}' > sensacine_test.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f sensacine_test.json
-          git commit -m "debug: SensaCine connectivity test result"
-          git push
-
-      - name: Run build pipeline
-        run: python build_site.py
+          git commit -m "debug: build pipeline failure info" || true
+          git push || true
 
       - name: Commit and push if changed
         run: |

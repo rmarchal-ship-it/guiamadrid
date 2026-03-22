@@ -709,6 +709,9 @@ def main() -> int:
 
     if not showtimes:
         print("\nERROR: No showtimes scraped. Aborting to preserve existing data.")
+        # Write debug info
+        debug = {"movies": len(movies), "showtimes": len(showtimes), "cinemas": len(cinemas), "errors": errors[:20]}
+        (PROJECT_ROOT / "sensacine_test.json").write_text(json.dumps(debug, indent=2, ensure_ascii=False), encoding="utf-8")
         return 1
 
     # --- Step 2: Merge TMDB IDs ---
