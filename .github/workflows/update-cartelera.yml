@@ -1,0 +1,47 @@
+name: Update Cartelera
+
+on:
+  schedule:
+    # 6:00 AM Madrid time (Europe/Madrid)
+    # CET (winter) = UTC+1 -> 05:00 UTC
+    # CEST (summer) = UTC+2 -> 04:00 UTC
+    # Use 04:00 UTC to cover summer; in winter it runs at 5:00 AM Madrid time
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/Madrid
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install yt-dlp
+
+      - name: Run build pipeline
+        run: python build_site.py
+
+      - name: Commit and push if changed
+        run: |
+          git diff --quiet cartelera_standalone.html && echo "No changes." && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          DATE=$(date +%Y-%m-%d)
+          git add cartelera_standalone.html
+          git commit -m "Update cartelera for ${DATE}"
+          git push
