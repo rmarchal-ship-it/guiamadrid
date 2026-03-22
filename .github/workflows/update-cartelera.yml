@@ -2,10 +2,6 @@ name: Update Cartelera
 
 on:
   schedule:
-    # 6:00 AM Madrid time (Europe/Madrid)
-    # CET (winter) = UTC+1 -> 05:00 UTC
-    # CEST (summer) = UTC+2 -> 04:00 UTC
-    # Use 04:00 UTC to cover summer; in winter it runs at 5:00 AM Madrid time
     - cron: "0 4 * * *"
   workflow_dispatch:
 
@@ -32,19 +28,48 @@ jobs:
           python -m pip install --upgrade pip
           pip install curl-cffi yt-dlp
 
-      - name: Run build pipeline
-        shell: bash
-        run: set -o pipefail && python build_site.py 2>&1 | tee /tmp/build.log
-
-      - name: Show changes
-        if: always()
+      - name: Test SensaCine connectivity
         run: |
-          echo "=== git diff stats ==="
-          git diff --stat cartelera_standalone.html || true
-          echo "=== date in showtimes (first 3) ==="
-          grep -oP '"date": "[^"]*"' cartelera_standalone.html | head -3 || true
-          echo "=== datePicker value ==="
-          grep -oP 'value="[0-9-]+"' cartelera_standalone.html | head -1 || true
+          python3 << 'PYEOF'
+          from curl_cffi import requests
+          import json, os
+          s = requests.Session(impersonate="chrome")
+          url = "https://www.sensacine.com/_/showtimes/theater-E0621/d-$(date +%Y-%m-%d)/p-1"
+          result = {}
+          try:
+              r = s.get(url, timeout=15)
+              result["status"] = r.status_code
+              result["content_type"] = r.headers.get("content-type", "N/A")
+              result["body_preview"] = r.text[:500]
+              if r.status_code == 200 and "json" in r.headers.get("content-type", ""):
+                  data = r.json()
+                  result["num_results"] = len(data.get("results", []))
+                  result["ok"] = True
+              else:
+                  result["ok"] = False
+          except Exception as e:
+              result["error"] = str(e)
+              result["ok"] = False
+          # Write to file for debugging
+          with open("sensacine_test.json", "w") as f:
+              json.dump(result, f, indent=2, ensure_ascii=False)
+          # Print summary
+          print(json.dumps(result, indent=2, ensure_ascii=False))
+          if not result.get("ok"):
+              exit(1)
+          PYEOF
+
+      - name: Commit test result on failure
+        if: failure()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f sensacine_test.json
+          git commit -m "debug: SensaCine connectivity test result"
+          git push
+
+      - name: Run build pipeline
+        run: python build_site.py
 
       - name: Commit and push if changed
         run: |
