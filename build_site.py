@@ -671,11 +671,20 @@ def main() -> int:
     test_url = SHOWTIMES_URL.format(theater_id=test_id, date=today.strftime("%Y-%m-%d"), page=1)
     try:
         resp = _session.get(test_url, timeout=REQUEST_TIMEOUT)
-        print(f"  Status: {resp.status_code} | Content-Type: {resp.headers.get('content-type', 'N/A')}")
-        if resp.status_code != 200:
-            print(f"  Response body[:500]: {resp.text[:500]}")
-            print("\n  SensaCine is blocking requests from this IP.")
+        ct = resp.headers.get("content-type", "N/A")
+        print(f"  Status: {resp.status_code} | Content-Type: {ct}")
+        print(f"  Response body[:500]: {resp.text[:500]}")
+        if resp.status_code != 200 or "json" not in ct.lower():
+            print("\n  SensaCine is NOT returning JSON. Likely blocking or captcha.")
             print("  The pipeline cannot update data in this environment.")
+            return 1
+        # Verify it actually parses as JSON
+        try:
+            data = resp.json()
+            results = data.get("results", [])
+            print(f"  Test OK: got {len(results)} movies from test cinema")
+        except Exception:
+            print("  Response is not valid JSON despite Content-Type header.")
             return 1
     except Exception as e:
         print(f"  Connection failed: {e}")
