@@ -173,38 +173,52 @@ const EMBEDDED_CINEMAS = [{"id": 20, "external_id": "G02GQ", "name": "Cine Doré
 
 // TMDB poster lookup map (title -> TMDB movie ID)
 const TMDB_IDS = {
+  "Amarga Navidad": 1088548,
   "Hoppers": 1327819,
+  "Torrente Presidente": 1217584,
   "Scream VII": 1159559,
   "Greenland 2: El regreso": 840464,
-  "Perfect Blue (Reestreno)": 10494,
-  "Your Name (Reposición)": 372058,
-  "El mago del Kremlin": 1291659,
-  "Torrente Presidente": 1217584,
   "Whistle: El silbido del mal": 1193501,
   "La novia": 1159831,
+  "Elegir mi vida": 1277884,
+  "La sonrisa del mal": 1092936,
+  "Tafiti y sus amigos": 1437198,
+  "Una hija en Tokio": 1021643,
+  "Perfect Blue (Reestreno)": 10494,
+  "Your Name (Reposición)": 372058,
+  "Power to the People": 1539299,
+  "La Grazia": 1397364,
+  "El mago del Kremlin": 1291659,
+  "La última cena": 1380415,
 };
 
 // Poster cache
 const posterCache = {};
 
-// Fetch posters from TMDB (runs in user's browser, no API key needed for image URLs)
+// Fetch posters from TMDB (runs in user's browser)
 async function fetchPosters() {
-  // TMDB allows fetching movie pages; we'll try to get poster paths
-  // Using the free TMDB API v3 with a community read-only token
   const apiBase = 'https://api.themoviedb.org/3/movie/';
-  // Public read token (TMDB allows read-only access)
-  const options = {
-    method: 'GET',
-    headers: {
-      'Authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkYmQ1NjlmMjU4ODkzNzg2NTFkYjM2OWFiZDk4OTIyMSIsIm5iZiI6MTczNzc2MDcxMi44NzcsInN1YiI6IjY3OTM4ZWM4MTM1YjVlOTE2ZTMzNjY3NSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.placeholder',
-      'accept': 'application/json'
-    }
-  };
 
-  // Try fetching without auth first (some TMDB image URLs are guessable)
+  // Try with stored API key, or prompt user
+  let apiKey = localStorage.getItem('tmdb_api_key') || '';
+
+  // If no key, try without auth (won't work but won't crash)
+  if (!apiKey) {
+    // Show a subtle prompt to add TMDB key
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:#1a1a2e;border:1px solid #2a2a3e;border-radius:8px;padding:0.8rem 1.2rem;margin:0 2rem 1rem;font-size:0.85rem;color:#888;display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;';
+    banner.innerHTML = `
+      <span>Para ver los pósters, introduce tu API key de <a href="https://www.themoviedb.org/settings/api" target="_blank" style="color:#e94560">TMDB</a> (gratis):</span>
+      <input type="text" id="tmdb-key-input" placeholder="Tu API key v3" style="background:#0f0f0f;color:#eee;border:1px solid #2a2a3e;border-radius:4px;padding:0.3rem 0.6rem;font-size:0.85rem;width:280px;">
+      <button onclick="saveTmdbKey()" style="background:#e94560;color:#fff;border:none;border-radius:4px;padding:0.3rem 0.8rem;cursor:pointer;font-size:0.85rem;">Guardar</button>
+    `;
+    document.querySelector('.content').prepend(banner);
+    return;
+  }
+
   for (const [title, tmdbId] of Object.entries(TMDB_IDS)) {
     try {
-      const resp = await fetch(`${apiBase}${tmdbId}?language=es-ES`, options);
+      const resp = await fetch(`${apiBase}${tmdbId}?api_key=${apiKey}&language=es-ES`);
       if (resp.ok) {
         const data = await resp.json();
         if (data.poster_path) {
@@ -238,6 +252,14 @@ async function fetchPosters() {
       el.replaceWith(img);
     }
   });
+}
+
+function saveTmdbKey() {
+  const key = document.getElementById('tmdb-key-input').value.trim();
+  if (key) {
+    localStorage.setItem('tmdb_api_key', key);
+    location.reload();
+  }
 }
 
 let allShowtimes = EMBEDDED_SHOWTIMES;
