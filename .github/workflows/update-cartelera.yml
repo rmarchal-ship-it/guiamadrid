@@ -33,7 +33,14 @@ jobs:
           pip install curl-cffi yt-dlp
 
       - name: Run build pipeline
-        run: python build_site.py
+        run: python build_site.py 2>&1 | tee build_output.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build_output.log
 
       - name: Commit and push if changed
         run: |
