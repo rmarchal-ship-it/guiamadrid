@@ -30,8 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install yt-dlp
+          pip install curl-cffi yt-dlp
 
       - name: Run build pipeline
         run: python build_site.py

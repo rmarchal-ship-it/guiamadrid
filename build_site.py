@@ -20,7 +20,7 @@ import unicodedata
 from datetime import date, datetime
 from pathlib import Path
 
-import httpx
+from curl_cffi import requests as cffi_requests
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -63,12 +63,9 @@ except ImportError:
 # STEP 1: Scrape SensaCine
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Shared httpx client — created once, reused everywhere
-_client = httpx.Client(
-    headers=HEADERS,
-    timeout=REQUEST_TIMEOUT,
-    follow_redirects=True,
-)
+# Shared session — impersonates Chrome to bypass TLS fingerprint checks
+_session = cffi_requests.Session(impersonate="chrome")
+_session.headers.update(HEADERS)
 
 
 def _fetch_json(url: str, referer: str = "") -> dict:
@@ -78,15 +75,14 @@ def _fetch_json(url: str, referer: str = "") -> dict:
         extra["Referer"] = referer
     for attempt in range(MAX_RETRIES):
         try:
-            resp = _client.get(url, headers=extra)
+            resp = _session.get(url, headers=extra, timeout=REQUEST_TIMEOUT)
             resp.raise_for_status()
             return resp.json()
         except Exception as e:
             if attempt == MAX_RETRIES - 1:
-                # Log details of the final failure
                 if hasattr(e, "response") and e.response is not None:
                     r = e.response
-                    print(f"\n    HTTP {r.status_code} | {r.headers.get('content-type','')} | body[:200]: {r.text[:200]}")
+                    print(f"\n    HTTP {r.status_code} | body[:200]: {r.text[:200]}")
                 raise
             time.sleep(2 ** attempt)
     return {}
@@ -94,7 +90,7 @@ def _fetch_json(url: str, referer: str = "") -> dict:
 
 def _fetch_text(url: str) -> str:
     """Fetch a URL and return text."""
-    resp = _client.get(url)
+    resp = _session.get(url, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
     return resp.text
 
@@ -663,7 +659,7 @@ def main() -> int:
     test_id = list(SENSACINE_THEATER_IDS.keys())[0]
     test_url = SHOWTIMES_URL.format(theater_id=test_id, date=today.strftime("%Y-%m-%d"), page=1)
     try:
-        resp = _client.get(test_url)
+        resp = _session.get(test_url, timeout=REQUEST_TIMEOUT)
         print(f"  Status: {resp.status_code} | Content-Type: {resp.headers.get('content-type', 'N/A')}")
         if resp.status_code != 200:
             print(f"  Response body[:500]: {resp.text[:500]}")
