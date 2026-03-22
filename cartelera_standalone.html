@@ -250,11 +250,16 @@
   }
   .cinema-card {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 8px; padding: 1rem 1.2rem;
+    border-radius: 8px; padding: 1rem 1.2rem; cursor: pointer;
+    transition: border-color 0.2s, transform 0.2s;
   }
+  .cinema-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .cinema-card.no-sessions { opacity: 0.5; cursor: default; }
+  .cinema-card.no-sessions:hover { border-color: var(--border); transform: none; }
   .cinema-card h3 { font-size: 1rem; margin-bottom: 0.3rem; }
   .cinema-card .addr { font-size: 0.8rem; color: var(--muted); }
   .cinema-card .movie-count { font-size: 0.75rem; color: var(--accent); margin-top: 0.4rem; }
+  .cinema-card.no-sessions .movie-count { color: var(--muted); }
   .loading { text-align: center; padding: 3rem; color: var(--muted); font-size: 1.1rem; }
   .empty { text-align: center; padding: 3rem; color: var(--muted); }
   .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -593,17 +598,40 @@ function loadCinemas() {
     moviesByCinema[s.cinema].add(s.movie);
   });
 
+  // Sort: cinemas with sessions first, then alphabetically
+  const sorted = [...allCinemas].sort((a, b) => {
+    const aCount = moviesByCinema[a.name] ? moviesByCinema[a.name].size : 0;
+    const bCount = moviesByCinema[b.name] ? moviesByCinema[b.name].size : 0;
+    if (aCount && !bCount) return -1;
+    if (!aCount && bCount) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
   container.className = 'cinemas-list';
-  container.innerHTML = allCinemas.map(c => {
+  container.innerHTML = sorted.map(c => {
     const movieCount = moviesByCinema[c.name] ? moviesByCinema[c.name].size : 0;
     const showtimeCount = allShowtimes.filter(s => s.cinema === c.name).length;
+    const noSessions = movieCount === 0;
+    const cls = noSessions ? 'cinema-card no-sessions' : 'cinema-card';
+    const label = noSessions ? 'Sin sesiones disponibles' : `${movieCount} películas · ${showtimeCount} sesiones`;
+    const onclick = noSessions ? '' : `onclick="selectCinema('${esc(c.name).replace(/'/g, "\\'")}')"`;
     return `
-      <div class="cinema-card">
+      <div class="${cls}" ${onclick}>
         <h3>${esc(c.name)}</h3>
-        <div class="addr">${esc(c.address || c.external_id)}</div>
-        <div class="movie-count">${movieCount} películas · ${showtimeCount} sesiones</div>
+        <div class="addr">${esc(c.address || '')}</div>
+        <div class="movie-count">${label}</div>
       </div>`;
   }).join('');
+}
+
+function selectCinema(name) {
+  // Switch to películas tab and filter by this cinema
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('[data-tab="peliculas"]').classList.add('active');
+  document.getElementById('peliculas-tab').style.display = '';
+  document.getElementById('cines-tab').style.display = 'none';
+  cinemaFilter.value = name;
+  renderMovies();
 }
 
 function esc(s) {
