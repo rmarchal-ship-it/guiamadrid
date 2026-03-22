@@ -39,11 +39,13 @@ USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 )
 REQUEST_TIMEOUT = 15
-REQUEST_DELAY = 0.5  # seconds between requests
+REQUEST_DELAY = 1.0  # seconds between requests
+MAX_RETRIES = 3
 
 HEADERS = {
     "User-Agent": USER_AGENT,
-    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "es-ES,es;q=0.9",
 }
 
 # Import cinema IDs from config
@@ -61,11 +63,21 @@ except ImportError:
 # STEP 1: Scrape SensaCine
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _fetch_json(url: str) -> dict:
-    """Fetch a URL and return parsed JSON."""
-    req = Request(url, headers=HEADERS)
-    with urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
-        return json.loads(resp.read().decode("utf-8", errors="replace"))
+def _fetch_json(url: str, referer: str = "") -> dict:
+    """Fetch a URL and return parsed JSON, with retries."""
+    headers = dict(HEADERS)
+    if referer:
+        headers["Referer"] = referer
+    for attempt in range(MAX_RETRIES):
+        try:
+            req = Request(url, headers=headers)
+            with urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+                return json.loads(resp.read().decode("utf-8", errors="replace"))
+        except Exception:
+            if attempt == MAX_RETRIES - 1:
+                raise
+            time.sleep(2 ** attempt)
+    return {}
 
 
 def _fetch_text(url: str) -> str:
@@ -211,9 +223,10 @@ def scrape_all_cinemas(target_date: date) -> tuple[list[dict], list[dict], list[
             total_pages = 1
             theater_showtimes = 0
 
+            referer = f"{SENSACINE_BASE_URL}/cines/cine/{theater_id}/"
             while page <= total_pages:
                 url = SHOWTIMES_URL.format(theater_id=theater_id, date=date_str, page=page)
-                data = _fetch_json(url)
+                data = _fetch_json(url, referer=referer)
 
                 pagination = data.get("pagination", {})
                 total_pages = int(pagination.get("totalPages", 1))
