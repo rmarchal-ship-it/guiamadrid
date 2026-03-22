@@ -20,7 +20,7 @@ import unicodedata
 from datetime import date, datetime
 from pathlib import Path
 
-from curl_cffi import requests as cffi_requests
+import cloudscraper
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -63,8 +63,10 @@ except ImportError:
 # STEP 1: Scrape SensaCine
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Shared session — impersonates Chrome to bypass TLS fingerprint checks
-_session = cffi_requests.Session(impersonate="chrome")
+# Shared session — cloudscraper handles Cloudflare challenges automatically
+_session = cloudscraper.create_scraper(
+    browser={"browser": "chrome", "platform": "linux", "desktop": True},
+)
 _session.headers.update(HEADERS)
 
 
