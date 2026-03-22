@@ -753,4 +753,13 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception:
+        import traceback
+        tb = traceback.format_exc()
+        print(tb)
+        # Write traceback to file for debugging in CI
+        debug_file = PROJECT_ROOT / "sensacine_test.json"
+        debug_file.write_text(json.dumps({"crash": True, "traceback": tb}, indent=2), encoding="utf-8")
+        sys.exit(1)
