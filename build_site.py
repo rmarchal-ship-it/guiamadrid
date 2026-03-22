@@ -11,6 +11,7 @@ No API keys needed. Runnable as: python build_site.py
 
 from __future__ import annotations
 
+import html as html_module
 import json
 import re
 import subprocess
@@ -162,9 +163,10 @@ def _extract_movie_info(movie: dict) -> dict:
     elif isinstance(poster_obj, str):
         poster = poster_obj
 
-    # Synopsis (strip HTML tags)
+    # Synopsis (strip HTML tags and decode entities)
     synopsis_raw = movie.get("synopsisFull") or movie.get("synopsis", "")
-    synopsis = re.sub(r"<[^>]+>", "", synopsis_raw).strip()
+    synopsis = re.sub(r"<[^>]+>", "", synopsis_raw)
+    synopsis = html_module.unescape(synopsis).strip()
 
     # Rating
     rating = None
