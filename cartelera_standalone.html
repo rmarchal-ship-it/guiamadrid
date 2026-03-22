@@ -226,7 +226,23 @@
     display: inline-flex; align-items: center; gap: 0.25rem;
     color: var(--gold); font-weight: 600; font-size: 0.9rem; margin-top: 0.3rem;
   }
-  .movie-card .showtimes-section { border-top: 1px solid var(--border); padding: 0.8rem 1rem; }
+  .movie-card .top { cursor: pointer; }
+  .movie-card .showtimes-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid var(--border); padding: 0.5rem 1rem;
+    cursor: pointer; color: var(--muted); font-size: 0.78rem;
+    transition: color 0.2s;
+  }
+  .movie-card .showtimes-toggle:hover { color: var(--text); }
+  .movie-card .showtimes-toggle .arrow {
+    transition: transform 0.3s; font-size: 0.7rem;
+  }
+  .movie-card.expanded .showtimes-toggle .arrow { transform: rotate(180deg); }
+  .movie-card .showtimes-section {
+    border-top: 1px solid var(--border); padding: 0 1rem;
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease;
+  }
+  .movie-card.expanded .showtimes-section { max-height: 2000px; padding: 0.8rem 1rem; }
   .movie-card .cinema-group { margin-bottom: 0.6rem; }
   .movie-card .cinema-group:last-child { margin-bottom: 0; }
   .movie-card .cinema-name {
@@ -566,7 +582,7 @@ function renderMovies() {
     let posterHtml;
     if (ytId) {
       // YouTube thumbnail with play button
-      posterHtml = `<div class="yt-poster" onclick="openTrailer('${ytId}')" title="Ver tráiler">
+      posterHtml = `<div class="yt-poster" onclick="event.stopPropagation();openTrailer('${ytId}')" title="Ver tráiler">
         <img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" alt="${esc(mv.title)}" loading="lazy"
           onerror="this.parentElement.outerHTML='<div class=\\'poster-placeholder\\'>${esc(mv.title).replace(/'/g,"\\'")}</div>'">
         <div class="play-btn"></div>
@@ -579,7 +595,7 @@ function renderMovies() {
     }
 
     const ratingHtml = mv.rating
-      ? `<div class="rating">★ ${mv.rating.toFixed(1)}</div>` : '';
+      ? `<div class="rating">★ ${mv.rating.toFixed(1)}<span style="color:var(--muted);font-weight:400;font-size:0.75rem;margin-left:0.15rem">/5</span></div>` : '';
 
     const metaParts = [mv.director, mv.genre, mv.duration_min ? `${mv.duration_min} min` : null].filter(Boolean);
 
@@ -601,8 +617,10 @@ function renderMovies() {
       return `<div class="cinema-group"><div class="cinema-name">${esc(cinema)}</div><div class="time-chips">${chips}</div></div>`;
     }).join('');
 
+    const sessionCount = mv.showtimes.length;
+    const cinemaCount = Object.keys(byCinema).length;
     return `
-      <div class="movie-card">
+      <div class="movie-card" onclick="this.classList.toggle('expanded')">
         <div class="top">
           ${posterHtml}
           <div class="info">
@@ -611,6 +629,10 @@ function renderMovies() {
             ${ratingHtml}
             ${synopsisHtml}
           </div>
+        </div>
+        <div class="showtimes-toggle">
+          <span>${sessionCount} sesiones en ${cinemaCount} cine${cinemaCount > 1 ? 's' : ''}</span>
+          <span class="arrow">▼</span>
         </div>
         <div class="showtimes-section">${cinemaGroups}</div>
       </div>`;
