@@ -6,12 +6,14 @@ Usage:
     python -m guiamadrid serve           # Start FastAPI server
     python -m guiamadrid digest          # Send email digest for today
     python -m guiamadrid stats           # Show DB stats
+    python -m guiamadrid trailers        # Find YouTube trailers for current movies
 """
 
 from __future__ import annotations
 
 import sys
 from datetime import date
+from pathlib import Path
 
 
 def cmd_scrape(target_date: str | None = None):
@@ -42,6 +44,16 @@ def cmd_serve():
 def cmd_digest(target_date: str | None = None):
     from guiamadrid.notifications.email_sender import send_digest
     send_digest(target_date)
+
+
+def cmd_trailers():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "find_trailers", Path(__file__).parent.parent / "find_trailers.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    sys.exit(mod.main())
 
 
 def cmd_stats():
@@ -81,6 +93,8 @@ def main():
         cmd_digest(extra)
     elif command == "stats":
         cmd_stats()
+    elif command == "trailers":
+        cmd_trailers()
     else:
         print(f"Unknown command: {command}")
         print(__doc__)

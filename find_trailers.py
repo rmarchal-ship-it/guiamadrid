@@ -6,7 +6,9 @@ Usa yt-dlp para buscar en YouTube, verifica que el resultado corresponde
 a la película correcta, y actualiza cartelera_standalone.html con los
 IDs de vídeo encontrados.
 
-Sin APIs de pago ni servicios capados. Solo YouTube público + yt-dlp.
+Fully autonomous: reads movie titles from cartelera_standalone.html,
+auto-generates search queries, and updates the HTML with found trailer IDs.
+No hardcoded movie list. No API keys needed. Only YouTube + yt-dlp.
 """
 
 import json
@@ -18,134 +20,71 @@ from pathlib import Path
 
 HTML_FILE = Path(__file__).parent / "cartelera_standalone.html"
 
-# ── Películas con datos de búsqueda enriquecidos para verificación ──
-MOVIES = [
-    {
-        "title": "Amarga Navidad",
-        "search": "Amarga Navidad Pedro Almodóvar trailer",
-        "verify": ["almodóvar", "amarga navidad"],
-        "director": "Pedro Almodóvar",
-        "year": 2025,
-    },
-    {
-        "title": "Hoppers",
-        "search": "Hoppers película animación 2025 trailer español",
-        "verify": ["hoppers"],
-        "director": "Daniel Chong",
-        "year": 2025,
-    },
-    {
-        "title": "Torrente Presidente",
-        "search": "Torrente Presidente Santiago Segura trailer",
-        "verify": ["torrente"],
-        "director": "Santiago Segura",
-        "year": 2025,
-    },
-    {
-        "title": "Scream VII",
-        "search": "Scream VII trailer español",
-        "verify": ["scream"],
-        "director": "Kevin Williamson",
-        "year": 2025,
-    },
-    {
-        "title": "Greenland 2: El regreso",
-        "search": "Greenland 2 El regreso Gerard Butler trailer español",
-        "verify": ["greenland"],
-        "director": "Ric Roman Waugh",
-        "year": 2025,
-    },
-    {
-        "title": "Whistle: El silbido del mal",
-        "search": "Whistle El silbido del mal trailer español",
-        "verify": ["whistle", "silbido"],
-        "director": "Corin Hardy",
-        "year": 2025,
-    },
-    {
-        "title": "La novia",
-        "search": "The Bride 2025 Maggie Gyllenhaal Jessie Buckley trailer",
-        "verify": ["bride", "novia"],
-        "director": "Maggie Gyllenhaal",
-        "year": 2025,
-    },
-    {
-        "title": "Elegir mi vida",
-        "search": "Elegir mi vida Amélie Bonnin trailer español",
-        "verify": ["elegir", "vida"],
-        "director": "Amélie Bonnin",
-        "year": 2025,
-    },
-    {
-        "title": "La sonrisa del mal",
-        "search": "La sonrisa del mal película 2025 trailer español",
-        "verify": ["sonrisa", "mal"],
-        "director": "",
-        "year": 2025,
-    },
-    {
-        "title": "Tafiti y sus amigos",
-        "search": "Tafiti y sus amigos película trailer español",
-        "verify": ["tafiti"],
-        "director": "",
-        "year": 2025,
-    },
-    {
-        "title": "Una hija en Tokio",
-        "search": "Una hija en Tokio película 2025 trailer español",
-        "verify": ["hija", "tokio"],
-        "director": "",
-        "year": 2025,
-    },
-    {
-        "title": "Perfect Blue (Reestreno)",
-        "search": "Perfect Blue Satoshi Kon trailer español",
-        "verify": ["perfect blue"],
-        "director": "Satoshi Kon",
-        "year": 1997,
-    },
-    {
-        "title": "Your Name (Reposición)",
-        "search": "Your Name Makoto Shinkai trailer español",
-        "verify": ["your name", "kimi no na wa"],
-        "director": "Makoto Shinkai",
-        "year": 2016,
-    },
-    {
-        "title": "Power to the People",
-        "search": "Power to the People John Lennon concert documentary trailer",
-        "verify": ["power", "people", "lennon"],
-        "director": "",
-        "year": 2025,
-    },
-    {
-        "title": "La Grazia",
-        "search": "La Grazia Paolo Sorrentino trailer",
-        "verify": ["grazia", "sorrentino"],
-        "director": "Paolo Sorrentino",
-        "year": 2025,
-    },
-    {
-        "title": "El mago del Kremlin",
-        "search": "El mago del Kremlin Olivier Assayas trailer español",
-        "verify": ["kremlin", "mago"],
-        "director": "Olivier Assayas",
-        "year": 2025,
-    },
-    {
-        "title": "La última cena",
-        "search": "La última cena película 2025 trailer español thriller",
-        "verify": ["última cena", "ultima cena"],
-        "director": "",
-        "year": 2025,
-    },
-]
-
 
 def normalize(text: str) -> str:
     """Remove accents & lowercase for fuzzy matching."""
     text = unicodedata.normalize("NFD", text.lower())
     return "".join(c for c in text if unicodedata.category(c) != "Mn")
+
+
+def extract_movies_from_html() -> list[dict]:
+    """Parse EMBEDDED_MOVIES from the HTML to get current movie list."""
+    html = HTML_FILE.read_text(encoding="utf-8")
+    match = re.search(r"const EMBEDDED_MOVIES\s*=\s*(\[.*?\]);\s*\n", html)
+    if not match:
+        print("⚠ Could not find EMBEDDED_MOVIES in HTML")
+        return []
+    return json.loads(match.group(1))
+
+
+def load_existing_trailers() -> dict[str, str]:
+    """Load existing YOUTUBE_TRAILERS from HTML to merge with new results."""
+    html = HTML_FILE.read_text(encoding="utf-8")
+    match = re.search(r"const YOUTUBE_TRAILERS\s*=\s*\{([^}]*)\}", html)
+    if not match:
+        return {}
+    existing = {}
+    for line in match.group(1).split("\n"):
+        m = re.match(r'\s*"([^"]+)":\s*"([^"]+)"', line)
+        if m:
+            existing[m.group(1)] = m.group(2)
+    return existing
+
+
+def build_search_entry(movie: dict) -> dict:
+    """Auto-generate a search entry from EMBEDDED_MOVIES data."""
+    title = movie["title"]
+    director = movie.get("director", "")
+    genre = movie.get("genre", "")
+
+    # Clean title: remove parenthetical suffixes like "(Reestreno)", "(Reposición)"
+    clean_title = re.sub(r"\s*\([^)]*\)\s*$", "", title).strip()
+
+    # Build search query
+    parts = [clean_title]
+    if director:
+        parts.append(director)
+    parts.append("trailer")
+    # Add "español" for non-Spanish titles (heuristic: contains non-Spanish chars or common English words)
+    if not re.search(r"[áéíóúñ]", clean_title.lower()):
+        parts.append("español")
+    search = " ".join(parts)
+
+    # Build verification keywords from significant words in title (3+ chars)
+    stopwords = {"del", "de", "la", "el", "los", "las", "un", "una", "en", "con", "por", "para", "que", "y"}
+    words = [w for w in re.findall(r"\w+", clean_title.lower()) if len(w) >= 3 and w not in stopwords]
+    # Use the most distinctive words (longest ones) as verify keywords
+    verify = sorted(words, key=len, reverse=True)[:3] if words else [normalize(clean_title)]
+    # Also add the full clean title as a keyword
+    verify.append(normalize(clean_title))
+
+    return {
+        "title": title,
+        "search": search,
+        "verify": verify,
+        "director": director,
+        "genre": genre,
+    }
 
 
 def search_youtube(query: str, max_results: int = 5) -> list[dict]:
@@ -223,7 +162,7 @@ def verify_video(video: dict, movie: dict) -> tuple[bool, str]:
 
     # Check: if director is known, bonus if mentioned
     director_match = True
-    if movie["director"]:
+    if movie.get("director"):
         director_norm = normalize(movie["director"].split()[-1])  # last name
         director_match = director_norm in combined
 
@@ -256,10 +195,9 @@ def find_trailer(movie: dict) -> dict | None:
             print(f"       🎬 ID: {video['id']}")
             return video
 
-    # If none passed strict verification, try a second search with different terms
-    alt_query = f"{movie['title']} película trailer 2025"
-    if movie["year"] and movie["year"] < 2020:
-        alt_query = f"{movie['title']} trailer oficial"
+    # Retry with alternative query
+    clean_title = re.sub(r"\s*\([^)]*\)\s*$", "", movie["title"]).strip()
+    alt_query = f"{clean_title} película trailer oficial"
     print(f"   🔄 Reintentando: {alt_query}")
     videos2 = search_youtube(alt_query, max_results=3)
     for video in videos2:
@@ -302,24 +240,20 @@ def update_html(trailer_map: dict[str, str]):
     print(f"\n✅ HTML actualizado con {len(trailer_map)} tráilers")
 
 
-def load_existing_trailers() -> dict[str, str]:
-    """Load existing YOUTUBE_TRAILERS from HTML to merge with new results."""
-    html = HTML_FILE.read_text(encoding="utf-8")
-    match = re.search(r"const YOUTUBE_TRAILERS\s*=\s*\{([^}]*)\}", html)
-    if not match:
-        return {}
-    existing = {}
-    for line in match.group(1).split("\n"):
-        m = re.match(r'\s*"([^"]+)":\s*"([^"]+)"', line)
-        if m:
-            existing[m.group(1)] = m.group(2)
-    return existing
-
-
 def main():
     print("=" * 60)
     print("🎬 Buscador de Tráilers — Guía Madrid Cartelera")
     print("=" * 60)
+
+    # Auto-discover movies from HTML
+    raw_movies = extract_movies_from_html()
+    if not raw_movies:
+        print("❌ No movies found in HTML")
+        return 1
+    print(f"🎬 {len(raw_movies)} películas en cartelera")
+
+    # Build search entries automatically
+    movies = [build_search_entry(m) for m in raw_movies]
 
     # Load existing trailers so we don't lose them
     existing = load_existing_trailers()
@@ -328,7 +262,7 @@ def main():
     trailer_map: dict[str, str] = {}
     failed: list[str] = []
 
-    for movie in MOVIES:
+    for movie in movies:
         # Skip movies that already have trailers
         if movie["title"] in existing:
             print(f"\n⏭️  {movie['title']}: ya tiene tráiler ({existing[movie['title']]})")

@@ -429,36 +429,6 @@ function generatePosterHtml(title, genre) {
 // Poster cache
 const posterCache = {};
 
-// Auto-fetch YouTube trailer IDs from TMDB for movies missing trailers
-async function fetchTrailers() {
-  const apiKey = localStorage.getItem('tmdb_api_key') || '';
-  if (!apiKey) return;
-
-  const apiBase = 'https://api.themoviedb.org/3/movie/';
-  let found = 0;
-  for (const [title, tmdbId] of Object.entries(TMDB_IDS)) {
-    if (YOUTUBE_TRAILERS[title]) continue; // already have trailer
-    try {
-      // Try Spanish trailers first, then fall back to default language
-      for (const lang of ['es-ES', 'en-US', '']) {
-        const langParam = lang ? `&language=${lang}` : '';
-        const resp = await fetch(`${apiBase}${tmdbId}/videos?api_key=${apiKey}${langParam}`);
-        if (!resp.ok) continue;
-        const data = await resp.json();
-        const trailer = data.results?.find(v =>
-          v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser')
-        );
-        if (trailer?.key) {
-          YOUTUBE_TRAILERS[title] = trailer.key;
-          found++;
-          break;
-        }
-      }
-    } catch(e) { /* silently skip */ }
-  }
-  if (found > 0) renderMovies(); // re-render to show new trailers
-}
-
 // Try to fetch real posters from TMDB (optional enhancement)
 async function fetchPosters() {
   const apiKey = localStorage.getItem('tmdb_api_key') || '';
@@ -678,8 +648,7 @@ renderStats();
 renderLanguageFilters();
 renderMovies();
 
-// Fetch trailers & posters asynchronously (updates UI when ready)
-fetchTrailers();
+// Fetch posters asynchronously (updates UI when ready)
 fetchPosters();
 
 // Trailer modal
