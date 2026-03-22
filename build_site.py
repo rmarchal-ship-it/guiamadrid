@@ -81,8 +81,12 @@ def _fetch_json(url: str, referer: str = "") -> dict:
             resp = _client.get(url, headers=extra)
             resp.raise_for_status()
             return resp.json()
-        except Exception:
+        except Exception as e:
             if attempt == MAX_RETRIES - 1:
+                # Log details of the final failure
+                if hasattr(e, "response") and e.response is not None:
+                    r = e.response
+                    print(f"\n    HTTP {r.status_code} | {r.headers.get('content-type','')} | body[:200]: {r.text[:200]}")
                 raise
             time.sleep(2 ** attempt)
     return {}
@@ -324,6 +328,12 @@ def scrape_all_cinemas(target_date: date) -> tuple[list[dict], list[dict], list[
         except Exception as e:
             print(f"ERROR: {e}")
             errors.append(f"{cinema_name} ({theater_id}): {e}")
+
+        # If the first 5 cinemas all failed, abort early (likely IP-blocked)
+        if idx == 5 and len(errors) == 5:
+            print("\n  First 5 cinemas all failed — SensaCine likely blocking this IP.")
+            print("  Aborting early to save time.")
+            break
 
         time.sleep(REQUEST_DELAY)
 
@@ -646,6 +656,22 @@ def main() -> int:
 
     if not HTML_FILE.exists():
         print(f"ERROR: HTML file not found: {HTML_FILE}")
+        return 1
+
+    # Quick connectivity test
+    print("\nTesting SensaCine connectivity...")
+    test_id = list(SENSACINE_THEATER_IDS.keys())[0]
+    test_url = SHOWTIMES_URL.format(theater_id=test_id, date=today.strftime("%Y-%m-%d"), page=1)
+    try:
+        resp = _client.get(test_url)
+        print(f"  Status: {resp.status_code} | Content-Type: {resp.headers.get('content-type', 'N/A')}")
+        if resp.status_code != 200:
+            print(f"  Response body[:500]: {resp.text[:500]}")
+            print("\n  SensaCine is blocking requests from this IP.")
+            print("  The pipeline cannot update data in this environment.")
+            return 1
+    except Exception as e:
+        print(f"  Connection failed: {e}")
         return 1
 
     # Load existing data from HTML (for merging)
