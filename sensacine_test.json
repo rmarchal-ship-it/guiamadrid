@@ -1,7 +1,4 @@
 {
-  "status": 200,
-  "content_type": "application/json",
-  "body_preview": "{\"error\":false,\"message\":null,\"messageParam\":null,\"nextDate\":null,\"results\":[{\"movie\":{\"synopsis\":\"Tras la muerte de su madre, Elsa, directora de publicidad, se refugia en el trabajo para evitar el duelo. Una crisis de p\\u00e1nico la obliga a parar, y viaja a Lanzarote con su amiga Patricia en busca de descanso y claridad, dejando a su pareja Bonifacio en Madrid.\",\"synopsis_json\":{\"__typename\":\"BodyJson\",\"body\":[{\"type\":\"paragraph\",\"children\":[{\"text\":\"Elsa es una directora de publicidad, cuya m",
-  "num_results": 9,
-  "ok": true
+  "crash": true,
+  "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/guiamadrid/guiamadrid/build_site.py\", line 757, in <module>\n    sys.exit(main())\n             ^^^^^^\n  File \"/home/runner/work/guiamadrid/guiamadrid/build_site.py\", line 740, in main\n    trailers = find_trailers(movies, relevant_trailers)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/guiamadrid/guiamadrid/build_site.py\", line 518, in find_trailers\n    if _verify_video(video, title, verify):\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/guiamadrid/guiamadrid/build_site.py\", line 460, in _verify_video\n    vdesc = _normalize(video.get(\"description\", \"\"))\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/guiamadrid/guiamadrid/build_site.py\", line 416, in _normalize\n    text = unicodedata.normalize(\"NFD\", text.lower())\n                                        ^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'lower'\n"
 }
