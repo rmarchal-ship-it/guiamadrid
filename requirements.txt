@@ -1,5 +1,5 @@
 # Guía del Ocio Madrid - dependencies
-httpx>=0.27
+cloudscraper>=1.2
 sqlalchemy>=2.0
 fastapi>=0.110
 uvicorn>=0.29

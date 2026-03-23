@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date
 
-import httpx
+import cloudscraper
 
 from guiamadrid.config import REQUEST_DELAY, REQUEST_TIMEOUT, USER_AGENT
 
@@ -44,20 +44,24 @@ class BaseScraper(ABC):
     """Base class for all scrapers."""
 
     def __init__(self):
-        self._client = httpx.Client(
-            headers={"User-Agent": USER_AGENT},
-            timeout=REQUEST_TIMEOUT,
-            follow_redirects=True,
+        self._client = cloudscraper.create_scraper(
+            browser={"browser": "chrome", "platform": "linux", "desktop": True},
         )
+        self._client.headers.update({
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "es-ES,es;q=0.9",
+        })
+        self._timeout = REQUEST_TIMEOUT
         self._last_request_time = 0.0
 
-    def _get(self, url: str) -> httpx.Response:
+    def _get(self, url: str):
         """Make a rate-limited GET request."""
         elapsed = time.time() - self._last_request_time
         if elapsed < REQUEST_DELAY:
             time.sleep(REQUEST_DELAY - elapsed)
         self._last_request_time = time.time()
-        return self._client.get(url)
+        return self._client.get(url, timeout=self._timeout)
 
     def _get_json(self, url: str) -> dict:
         """GET request expecting JSON response."""
