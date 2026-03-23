@@ -77,6 +77,49 @@ class Showtime(Base):
     )
 
 
+class Venue(Base):
+    __tablename__ = "venues"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    external_id = Column(String(100), unique=True, nullable=False)
+    name = Column(String(300), nullable=False)
+    address = Column(String(500), default="")
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    source = Column(String(50), default="ticketmaster")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    concerts = relationship("Concert", back_populates="venue")
+
+
+class Concert(Base):
+    __tablename__ = "concerts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    external_id = Column(String(100), nullable=True)
+    event_name = Column(String(500), nullable=False)
+    artist = Column(String(500), default="")
+    venue_id = Column(Integer, ForeignKey("venues.id"), nullable=False)
+    date = Column(String(10), nullable=False)  # "2026-03-20"
+    time = Column(String(5), default="")  # "21:00"
+    genre = Column(String(200), default="")
+    price_range = Column(String(100), default="")
+    ticket_url = Column(String(1000), default="")
+    image_url = Column(String(1000), default="")
+    source = Column(String(50), default="ticketmaster")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    venue = relationship("Venue", back_populates="concerts")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "venue_id", "event_name", "date", "time",
+            name="uq_concert",
+        ),
+    )
+
+
 class ScrapeLog(Base):
     __tablename__ = "scrape_logs"
 

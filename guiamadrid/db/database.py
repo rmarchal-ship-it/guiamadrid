@@ -9,8 +9,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from guiamadrid.config import DATA_DIR, DATABASE_URL
-from guiamadrid.db.models import Base, Cinema, Movie, ScrapeLog, Showtime
-from guiamadrid.scrapers.base import ScrapeResult
+from guiamadrid.db.models import Base, Cinema, Concert, Movie, ScrapeLog, Showtime, Venue
+from guiamadrid.scrapers.base import ConcertEvent, ConcertScrapeResult, ScrapeResult
 from guiamadrid.scrapers.base import Showtime as ShowtimeDTO
 
 # Ensure data directory exists
@@ -236,6 +236,163 @@ def get_cinemas() -> list[dict]:
                 "address": c.address,
             }
             for c in cinemas
+        ]
+    finally:
+        session.close()
+
+
+# ── Concerts ──────────────────────────────────────────────────────────────
+
+
+def store_concert_scrape_result(result: ConcertScrapeResult, source: str = "ticketmaster") -> int:
+    """Store concert scrape results into the database. Returns number of new concerts inserted."""
+    init_db()
+    session = SessionLocal()
+    inserted = 0
+
+    try:
+        venue_cache: dict[str, int] = {}
+
+        for ev in result.events:
+            venue_db_id = _get_or_create_venue(session, ev, venue_cache)
+
+            existing = (
+                session.query(Concert)
+                .filter_by(
+                    venue_id=venue_db_id,
+                    event_name=ev.event_name,
+                    date=ev.date,
+                    time=ev.time,
+                )
+                .first()
+            )
+            if not existing:
+                session.add(
+                    Concert(
+                        external_id=ev.external_id,
+                        event_name=ev.event_name,
+                        artist=ev.artist,
+                        venue_id=venue_db_id,
+                        date=ev.date,
+                        time=ev.time,
+                        genre=ev.genre,
+                        price_range=ev.price_range,
+                        ticket_url=ev.ticket_url,
+                        image_url=ev.image_url,
+                        source=source,
+                    )
+                )
+                inserted += 1
+
+        # Log the scrape
+        session.add(
+            ScrapeLog(
+                source=source,
+                date_scraped=result.events[0].date if result.events else str(date.today()),
+                showtimes_count=len(result.events),
+                cinemas_count=result.venues_count,
+                movies_count=0,
+                errors=json.dumps(result.errors) if result.errors else "",
+            )
+        )
+
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+    return inserted
+
+
+def _get_or_create_venue(
+    session: Session, ev: ConcertEvent, cache: dict[str, int]
+) -> int:
+    """Get or create a Venue record, return its DB id."""
+    key = ev.venue_id or ev.venue_name
+    if key in cache:
+        return cache[key]
+
+    venue = session.query(Venue).filter_by(external_id=key).first()
+    if not venue:
+        venue = Venue(
+            external_id=key,
+            name=ev.venue_name,
+            address=ev.venue_address,
+            latitude=ev.venue_latitude,
+            longitude=ev.venue_longitude,
+            source=ev.source,
+        )
+        session.add(venue)
+        session.flush()
+
+    cache[key] = venue.id
+    return venue.id
+
+
+def get_concerts_for_date(target_date: str) -> list[dict]:
+    """Get all concerts for a date, joined with venue info."""
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(Concert, Venue)
+            .join(Venue, Concert.venue_id == Venue.id)
+            .filter(Concert.date == target_date)
+            .order_by(Concert.time, Concert.event_name)
+            .all()
+        )
+        return [
+            {
+                "id": c.id,
+                "event_name": c.event_name,
+                "artist": c.artist,
+                "venue": v.name,
+                "venue_address": v.address,
+                "date": c.date,
+                "time": c.time,
+                "genre": c.genre,
+                "price_range": c.price_range,
+                "ticket_url": c.ticket_url,
+                "image_url": c.image_url,
+                "source": c.source,
+            }
+            for c, v in rows
+        ]
+    finally:
+        session.close()
+
+
+def get_concert_dates() -> list[str]:
+    """Get all dates that have concerts, sorted ascending."""
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(Concert.date)
+            .distinct()
+            .order_by(Concert.date.asc())
+            .all()
+        )
+        return [r[0] for r in rows]
+    finally:
+        session.close()
+
+
+def get_venues() -> list[dict]:
+    """Get all concert venues."""
+    session = SessionLocal()
+    try:
+        venues = session.query(Venue).order_by(Venue.name).all()
+        return [
+            {
+                "id": v.id,
+                "external_id": v.external_id,
+                "name": v.name,
+                "address": v.address,
+                "latitude": v.latitude,
+                "longitude": v.longitude,
+            }
+            for v in venues
         ]
     finally:
         session.close()
