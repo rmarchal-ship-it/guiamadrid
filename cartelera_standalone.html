@@ -41,6 +41,22 @@
     border: 1px solid var(--border); border-radius: 6px;
     padding: 0.4rem 0.6rem; font-size: 0.9rem;
   }
+  .search-bar {
+    display: flex; justify-content: center; padding: 1rem 2rem 0;
+  }
+  .search-bar input {
+    width: 100%; max-width: 500px; padding: 0.6rem 1rem; padding-left: 2.4rem;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card); color: var(--text); font-size: 0.95rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .search-bar input:focus { border-color: var(--accent); }
+  .search-bar input::placeholder { color: var(--muted); }
+  .search-wrapper { position: relative; width: 100%; max-width: 500px; }
+  .search-wrapper::before {
+    content: '\1F50D'; position: absolute; left: 0.7rem; top: 50%;
+    transform: translateY(-50%); font-size: 0.9rem; pointer-events: none;
+  }
   .tabs { display: flex; gap: 0; margin: 1.5rem 2rem 0; }
   .tab {
     padding: 0.6rem 1.4rem; background: var(--card);
@@ -294,6 +310,7 @@
     .movies-grid { grid-template-columns: 1fr; }
     header { padding: 1rem; }
     .content { padding: 1rem; }
+    .search-bar { padding: 1rem 1rem 0; }
     .tabs { margin: 1rem 1rem 0; }
   }
 </style>
@@ -310,6 +327,12 @@
     </select>
   </div>
 </header>
+
+<div class="search-bar">
+  <div class="search-wrapper">
+    <input type="text" id="searchInput" placeholder="Buscar película o cine..." autocomplete="off">
+  </div>
+</div>
 
 <div class="tabs">
   <div class="tab active" data-tab="peliculas">Películas</div>
@@ -535,13 +558,28 @@ function renderLanguageFilters() {
   });
 }
 
+function getSearchTerm() {
+  const el = document.getElementById('searchInput');
+  return el ? el.value.trim().toLowerCase() : '';
+}
+
 function renderMovies() {
   const container = document.getElementById('movies-container');
   const selectedCinema = cinemaFilter.value;
+  const search = getSearchTerm();
 
   let filtered = allShowtimes;
   if (selectedCinema) filtered = filtered.filter(s => s.cinema === selectedCinema);
   if (activeLanguageFilter) filtered = filtered.filter(s => s.language === activeLanguageFilter);
+  if (search) {
+    filtered = filtered.filter(s => {
+      const mv = allMovies.find(m => m.title === s.movie) || {};
+      return s.movie.toLowerCase().includes(search)
+        || s.cinema.toLowerCase().includes(search)
+        || (mv.director || '').toLowerCase().includes(search)
+        || (mv.genre || '').toLowerCase().includes(search);
+    });
+  }
 
   const movieMap = new Map();
   filtered.forEach(s => {
@@ -654,8 +692,18 @@ function loadCinemas() {
     moviesByCinema[s.cinema].add(s.movie);
   });
 
+  // Filter by search term
+  const search = getSearchTerm();
+  let cinemalist = allCinemas;
+  if (search) {
+    cinemalist = cinemalist.filter(c =>
+      c.name.toLowerCase().includes(search)
+      || (c.address || '').toLowerCase().includes(search)
+    );
+  }
+
   // Sort: cinemas with sessions first, then alphabetically
-  const sorted = [...allCinemas].sort((a, b) => {
+  const sorted = [...cinemalist].sort((a, b) => {
     const aCount = moviesByCinema[a.name] ? moviesByCinema[a.name].size : 0;
     const bCount = moviesByCinema[b.name] ? moviesByCinema[b.name].size : 0;
     if (aCount && !bCount) return -1;
@@ -696,6 +744,13 @@ function esc(s) {
   d.textContent = s;
   return d.innerHTML;
 }
+
+// Search input
+document.getElementById('searchInput').addEventListener('input', () => {
+  renderMovies();
+  loadCinemas();
+  renderStats();
+});
 
 // Initialize
 renderStats();

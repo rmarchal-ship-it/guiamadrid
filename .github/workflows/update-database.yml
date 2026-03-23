@@ -1,0 +1,45 @@
+name: Update Database
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/Madrid
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt cloudscraper
+
+      - name: Scrape to database
+        run: python -m guiamadrid scrape
+
+      - name: Show stats
+        run: python -m guiamadrid stats
+
+      - name: Commit and push if changed
+        run: |
+          git diff --quiet data/guiamadrid.db && echo "No changes." && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          DATE=$(date +%Y-%m-%d)
+          git add data/guiamadrid.db
+          git commit -m "Update database for ${DATE}"
+          git push
