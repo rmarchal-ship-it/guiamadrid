@@ -15,18 +15,33 @@ import requests
 from guiamadrid.config import DATOS_MADRID_EVENTS_URL
 from guiamadrid.scrapers.base import ConcertEvent, ConcertScrapeResult
 
-# Keywords that MUST appear in the title (not description) to qualify
+# Keywords that MUST appear in the title (not description) to qualify.
+# Note: datos.madrid.es lists municipal cultural activities (bibliotecas,
+# centros culturales, etc.) so music events often have generic titles.
 _TITLE_KEYWORDS = {
     "concierto", "jazz", "flamenco", "ópera", "opera",
     "recital", "coro ", "sinfónic", "sinfonic", "orquesta",
     "cantautor", "dj set", "música en vivo", "musica en vivo",
     "jam session", "live music",
+    # Broader music terms common in municipal event titles
+    "festival", "actuación musical", "actuacion musical",
+    "sesión musical", "sesion musical", "velada musical",
+    "fado", "gospel", "blues", "soul", "funk", "reggae", "hip hop",
+    "hip-hop", "r&b", "swing", "bolero", "tango", "salsa", "cumbia",
+    "copla", "zarzuela", "trova", "ranchera", "mariachi",
+    "serenata", "verbena", "karaoke",
+    "banda municipal", "banda sinfónica", "canto coral",
+    "música clásica", "musica clasica", "cámara ",
+    "cuarteto", "trío ", "dúo ", "solista",
 }
 
 # Broader keywords allowed in title+description, but only if title doesn't
 # match any exclusion
 _BROAD_KEYWORDS = {
     "música", "musica", "acústic", "electrónic",
+    "musical", "melódic", "melodic", "sonoro", "rítmic",
+    "guitarra", "piano", "violín", "violin", "saxo",
+    "cantante", "intérprete", "interprete",
 }
 
 # Events matching these in the title are NOT concerts
@@ -36,6 +51,8 @@ _EXCLUDE_KEYWORDS = {
     "apps", "biblioteca", "lectura", "cuentacuentos", "design",
     "teatro", "circo", "danza", "magia", "títere", "monólogo",
     "yoga", "pilates", "senderismo", "marcha", "paseo",
+    "manualidad", "pintura", "cerámica", "costura", "ganchillo",
+    "ajedrez", "club de lectura", "tertulia",
 }
 
 
@@ -95,7 +112,10 @@ class DatosMadridScraper:
         if any(kw in title for kw in _BROAD_KEYWORDS):
             return True
 
-        # Don't match on description alone — too many false positives
+        # Check description for strong music keywords (title alone wasn't enough)
+        if any(kw in desc for kw in _TITLE_KEYWORDS):
+            return True
+
         return False
 
     @classmethod

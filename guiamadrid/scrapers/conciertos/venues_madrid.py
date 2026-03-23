@@ -177,12 +177,18 @@ def _parse_price(text: str) -> str:
 class VenuesMadridScraper(BaseScraper):
     """Scrapes concert events from individual Madrid venue websites."""
 
+    # Shorter timeout for API probing (WP REST API), full timeout for HTML pages
+    _API_TIMEOUT = 5
+    _HTML_TIMEOUT = 10
+
     def __init__(self):
         super().__init__()
         # Accept HTML for venue sites
         self._client.headers.update({
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         })
+        # Shorter delay between requests (0.3s instead of 1s from base)
+        self._delay = 0.3
 
     def scrape(self, target_date: date | None = None) -> ConcertScrapeResult:
         target_date = target_date or date.today()
@@ -228,7 +234,7 @@ class VenuesMadridScraper(BaseScraper):
         for path in venue.agenda_paths:
             url = venue.url + path
             try:
-                resp = self._get(url)
+                resp = self._client.get(url, timeout=self._HTML_TIMEOUT)
                 if resp.status_code != 200:
                     continue
                 html = resp.text
@@ -250,7 +256,7 @@ class VenuesMadridScraper(BaseScraper):
         """Try The Events Calendar WordPress plugin API."""
         url = f"{venue.url}/wp-json/tribe/events/v1/events"
         try:
-            resp = self._get(url)
+            resp = self._client.get(url, timeout=self._API_TIMEOUT)
             if resp.status_code != 200:
                 return None
             data = resp.json()
@@ -310,7 +316,7 @@ class VenuesMadridScraper(BaseScraper):
         """Try WordPress REST API for posts."""
         url = f"{venue.url}/wp-json/wp/v2/posts?per_page=20"
         try:
-            resp = self._get(url)
+            resp = self._client.get(url, timeout=self._API_TIMEOUT)
             if resp.status_code != 200:
                 return None
             posts = resp.json()

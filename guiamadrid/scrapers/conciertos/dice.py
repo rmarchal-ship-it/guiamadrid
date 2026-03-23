@@ -1,11 +1,10 @@
 """DICE.fm scraper for Madrid concert/music events.
 
-DICE.fm is a JavaScript SPA. This scraper uses cloudscraper to bypass
-Cloudflare and extracts JSON-LD structured data (schema.org/Event)
-embedded in venue and event pages.
+DICE.fm is a JavaScript SPA — browse/listing pages don't contain event data
+in the server-rendered HTML. However, individual **venue pages** include
+JSON-LD (schema.org/Event) structured data that can be extracted.
 
-Madrid city ID: 5d8cef380de1e404dc962211
-Browse URL: https://dice.fm/browse/madrid-5d8cef380de1e404dc962211/music/gig?lng=es
+Strategy: scrape each known Madrid venue's DICE page for JSON-LD events.
 """
 
 from __future__ import annotations
@@ -16,11 +15,27 @@ from datetime import date, datetime
 
 from guiamadrid.scrapers.base import BaseScraper, ConcertEvent, ConcertScrapeResult
 
-_MADRID_CITY_ID = "5d8cef380de1e404dc962211"
-_BROWSE_URL = f"https://dice.fm/browse/madrid-{_MADRID_CITY_ID}/music/{{category}}?lng=es"
+# Known Madrid venue slugs on DICE.fm
+# Format: (venue_name, dice_slug)
+_DICE_VENUES = [
+    ("Sala Clamores", "sala-clamores-rgdy"),
+    ("Siroco", "siroco-987o"),
+    ("Sala Villanos", "sala-villanos-27d9v"),
+    ("Café Berlín", "caf-berln-dqx3"),
+    ("Tempo Club", "tempo-club-2bvw5"),
+    ("Sala La Riviera", "sala-la-riviera-3o3yp"),
+    ("Galileo Galilei", "sala-galileo-galilei-7r5v"),
+    ("Sala Rockville", "rockville-madrid-5q8o"),
+    ("Babylon Club", "babylon-2y77p"),
+    ("Café Central", "caf-central-madrid-dddae"),
+    ("Sala BUT", "but-bk95"),
+    ("Teatro Barceló", "teatro-barcel-7b9n"),
+    ("La Sala", "la-sala-1q3e"),
+    ("Moby Dick Club", "moby-dick-club-2orqg"),
+    ("WiZink Center", "wizink-center-2bxlr"),
+]
 
-# Event categories to scrape
-_CATEGORIES = ["gig", "party", "dj"]
+_VENUE_URL = "https://dice.fm/venue/{slug}?lng=es"
 
 # Regex to extract JSON-LD blocks from HTML
 _JSONLD_RE = re.compile(
@@ -36,7 +51,9 @@ _NEXT_DATA_RE = re.compile(
 
 
 class DiceScraper(BaseScraper):
-    """Scrapes concert events from DICE.fm Madrid pages."""
+    """Scrapes concert events from DICE.fm Madrid venue pages."""
+
+    _TIMEOUT = 8  # shorter timeout per venue page
 
     def scrape(self, target_date: date | None = None) -> ConcertScrapeResult:
         target_date = target_date or date.today()
@@ -47,20 +64,35 @@ class DiceScraper(BaseScraper):
         errors: list[str] = []
         seen_ids: set[str] = set()
 
-        for category in _CATEGORIES:
-            url = _BROWSE_URL.format(category=category)
+        for venue_name, slug in _DICE_VENUES:
+            url = _VENUE_URL.format(slug=slug)
             try:
                 html = self._fetch_html(url)
                 page_events = self._extract_events(html, target_str)
                 for ev in page_events:
+                    # Override venue name with our canonical name
+                    ev = ConcertEvent(
+                        event_name=ev.event_name,
+                        artist=ev.artist,
+                        venue_name=venue_name,
+                        venue_id=ev.venue_id or f"dice_{venue_name}",
+                        venue_address=ev.venue_address,
+                        date=ev.date,
+                        time=ev.time,
+                        genre=ev.genre,
+                        price_range=ev.price_range,
+                        ticket_url=ev.ticket_url,
+                        image_url=ev.image_url,
+                        source="dice",
+                        external_id=ev.external_id,
+                    )
                     key = ev.external_id or f"{ev.event_name}_{ev.date}"
                     if key not in seen_ids:
                         seen_ids.add(key)
                         events.append(ev)
-                        if ev.venue_id:
-                            venues_seen.add(ev.venue_id)
+                        venues_seen.add(venue_name)
             except Exception as e:
-                errors.append(f"DICE {category}: {e}")
+                errors.append(f"DICE {venue_name}: {e}")
 
         return ConcertScrapeResult(
             events=events,
@@ -69,7 +101,7 @@ class DiceScraper(BaseScraper):
         )
 
     def _fetch_html(self, url: str) -> str:
-        resp = self._get(url)
+        resp = self._client.get(url, timeout=self._TIMEOUT)
         resp.raise_for_status()
         return resp.text
 
@@ -96,7 +128,6 @@ class DiceScraper(BaseScraper):
             except json.JSONDecodeError:
                 continue
 
-            # Handle single objects and arrays
             items = data if isinstance(data, list) else [data]
 
             for item in items:
@@ -187,7 +218,7 @@ class DiceScraper(BaseScraper):
             genre="",
             price_range=price_range,
             ticket_url=ticket_url,
-            image_url=image,
+            image_url=image if isinstance(image, str) else "",
             source="dice",
             external_id=ticket_url or name,
         )
@@ -205,10 +236,7 @@ class DiceScraper(BaseScraper):
         except json.JSONDecodeError:
             return events
 
-        # Navigate the Next.js data structure to find events
-        # Structure varies, so we search recursively for event-like objects
         self._find_events_in_data(data, events, target_str)
-
         return events
 
     def _find_events_in_data(
@@ -219,7 +247,6 @@ class DiceScraper(BaseScraper):
             return
 
         if isinstance(data, dict):
-            # Look for event-like objects
             if "name" in data and ("date" in data or "startDate" in data or "event_date" in data):
                 event = self._dict_to_event(data)
                 if event:
@@ -240,7 +267,6 @@ class DiceScraper(BaseScraper):
         if not name:
             return None
 
-        # Date
         event_date = (
             data.get("date", "")
             or data.get("startDate", "")
@@ -249,7 +275,6 @@ class DiceScraper(BaseScraper):
         if not event_date:
             return None
 
-        # Time
         start = data.get("startDate") or data.get("date") or ""
         event_time = ""
         if "T" in start:
@@ -259,7 +284,6 @@ class DiceScraper(BaseScraper):
             except ValueError:
                 pass
 
-        # Venue
         venue = data.get("venue", {}) or data.get("location", {})
         if isinstance(venue, str):
             venue_name = venue
@@ -273,7 +297,6 @@ class DiceScraper(BaseScraper):
             venue_name = ""
             venue_address = ""
 
-        # Artist
         artists = data.get("artists", []) or data.get("lineup", [])
         if isinstance(artists, list):
             artist_names = []
