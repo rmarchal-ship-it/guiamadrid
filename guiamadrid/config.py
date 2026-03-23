@@ -1,6 +1,11 @@
 """Configuración central de Guía del Ocio Madrid."""
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -81,6 +86,15 @@ SENSACINE_THEATER_IDS = {
     "E0199": "Cinebox 3C (Tres Cantos)",
     "E0815": "Odeon Tres Cantos (Tres Cantos)",
 }
+
+# Ticketmaster Discovery API
+TICKETMASTER_API_KEY = os.environ.get("TICKETMASTER_API_KEY", "")
+TICKETMASTER_BASE_URL = "https://app.ticketmaster.com/discovery/v2"
+
+# Datos Abiertos Madrid
+DATOS_MADRID_EVENTS_URL = (
+    "https://datos.madrid.es/egob/catalogo/206974-0-agenda-eventos-culturales-100.json"
+)
 
 # Scraper settings
 REQUEST_TIMEOUT = 15
