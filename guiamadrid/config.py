@@ -82,6 +82,17 @@ SENSACINE_THEATER_IDS = {
     "E0815": "Odeon Tres Cantos (Tres Cantos)",
 }
 
+# Ticketmaster Discovery API
+import os
+
+TICKETMASTER_API_KEY = os.environ.get("TICKETMASTER_API_KEY", "")
+TICKETMASTER_BASE_URL = "https://app.ticketmaster.com/discovery/v2"
+
+# Datos Abiertos Madrid
+DATOS_MADRID_EVENTS_URL = (
+    "https://datos.madrid.es/egob/catalogo/206974-0-agenda-eventos-culturales-100.json"
+)
+
 # Scraper settings
 REQUEST_TIMEOUT = 15
 REQUEST_DELAY = 1.0  # seconds between requests

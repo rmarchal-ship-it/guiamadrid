@@ -10,8 +10,11 @@ from fastapi.responses import HTMLResponse
 from guiamadrid.db.database import (
     get_available_dates,
     get_cinemas,
+    get_concert_dates,
+    get_concerts_for_date,
     get_movies_for_date,
     get_showtimes_for_date,
+    get_venues,
     init_db,
 )
 
@@ -106,6 +109,40 @@ def showtimes_by_cinema(
     all_showtimes = get_showtimes_for_date(target)
     filtered = [s for s in all_showtimes if s["cinema_id"] == cinema_id]
     return {"date": target, "cinema_id": cinema_id, "count": len(filtered), "showtimes": filtered}
+
+
+# ── Concert endpoints ─────────────────────────────────────────────────────
+
+
+@app.get("/api/concerts/dates")
+def concert_dates():
+    """Get all available dates with concerts."""
+    available = get_concert_dates()
+    return {"dates": available}
+
+
+@app.get("/api/concerts")
+def concerts(
+    fecha: str = Query(
+        default=None,
+        description="Fecha en formato YYYY-MM-DD (default: hoy)",
+    ),
+):
+    """Get all concerts for a given date."""
+    target = fecha or str(date.today())
+    try:
+        date.fromisoformat(target)
+    except ValueError:
+        raise HTTPException(400, "Fecha inválida. Usa formato YYYY-MM-DD.")
+    results = get_concerts_for_date(target)
+    return {"date": target, "count": len(results), "concerts": results}
+
+
+@app.get("/api/venues")
+def venues():
+    """Get all concert venues."""
+    results = get_venues()
+    return {"count": len(results), "venues": results}
 
 
 def run():

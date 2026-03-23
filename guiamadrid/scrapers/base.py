@@ -40,6 +40,34 @@ class ScrapeResult:
     errors: list[str] = field(default_factory=list)
 
 
+@dataclass
+class ConcertEvent:
+    """A single concert/music event."""
+    event_name: str
+    artist: str
+    venue_name: str
+    venue_id: str = ""
+    venue_address: str = ""
+    venue_latitude: float | None = None
+    venue_longitude: float | None = None
+    date: str = ""  # "2026-03-20"
+    time: str = ""  # "21:00"
+    genre: str = ""
+    price_range: str = ""  # "25€ - 45€"
+    ticket_url: str = ""
+    image_url: str = ""
+    source: str = ""  # "ticketmaster", "datos_madrid"
+    external_id: str = ""
+
+
+@dataclass
+class ConcertScrapeResult:
+    """Result of a concert scrape run."""
+    events: list[ConcertEvent] = field(default_factory=list)
+    venues_count: int = 0
+    errors: list[str] = field(default_factory=list)
+
+
 class BaseScraper(ABC):
     """Base class for all scrapers."""
 
