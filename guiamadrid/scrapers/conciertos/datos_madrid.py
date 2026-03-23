@@ -15,10 +15,27 @@ import requests
 from guiamadrid.config import DATOS_MADRID_EVENTS_URL
 from guiamadrid.scrapers.base import ConcertEvent, ConcertScrapeResult
 
-_MUSIC_KEYWORDS = {
-    "concierto", "música", "musica", "jazz", "flamenco", "ópera", "opera",
-    "recital", "coro", "sinfónic", "sinfonic", "orquesta", "acústic",
-    "cantautor", "festival", "dj", "electrónic",
+# Keywords that MUST appear in the title (not description) to qualify
+_TITLE_KEYWORDS = {
+    "concierto", "jazz", "flamenco", "ópera", "opera",
+    "recital", "coro ", "sinfónic", "sinfonic", "orquesta",
+    "cantautor", "dj set", "música en vivo", "musica en vivo",
+    "jam session", "live music",
+}
+
+# Broader keywords allowed in title+description, but only if title doesn't
+# match any exclusion
+_BROAD_KEYWORDS = {
+    "música", "musica", "acústic", "electrónic",
+}
+
+# Events matching these in the title are NOT concerts
+_EXCLUDE_KEYWORDS = {
+    "exposición", "exposicion", "taller", "curso", "ruta ", "visita",
+    "asesoramiento", "laboratorio", "debate", "conferencia", "charla",
+    "apps", "biblioteca", "lectura", "cuentacuentos", "design",
+    "teatro", "circo", "danza", "magia", "títere", "monólogo",
+    "yoga", "pilates", "senderismo", "marcha", "paseo",
 }
 
 
@@ -65,10 +82,21 @@ class DatosMadridScraper:
     def _is_music_event(item: dict) -> bool:
         title = (item.get("title") or "").lower()
         desc = (item.get("description") or "").lower()
-        event_type = (item.get("/tipo") or "").lower()
 
-        text = f"{title} {desc} {event_type}"
-        return any(kw in text for kw in _MUSIC_KEYWORDS)
+        # Reject if title contains exclusion keywords
+        if any(kw in title for kw in _EXCLUDE_KEYWORDS):
+            return False
+
+        # Accept if title contains a strong music keyword
+        if any(kw in title for kw in _TITLE_KEYWORDS):
+            return True
+
+        # Accept if title contains broad keyword (but not excluded)
+        if any(kw in title for kw in _BROAD_KEYWORDS):
+            return True
+
+        # Don't match on description alone — too many false positives
+        return False
 
     @classmethod
     def _parse_event(cls, item: dict, target_str: str) -> ConcertEvent | None:
