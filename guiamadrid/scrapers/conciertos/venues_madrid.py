@@ -68,6 +68,12 @@ VENUES: list[Venue] = [
     Venue("Barracudas", "https://www.barracudasclub.com", ["/agenda/", "/programacion/", "/"]),
     Venue("Olvido Club", "https://www.olvidoclub.com", ["/agenda/", "/programacion/", "/"]),
     Venue("Hangar 48", "https://www.hangar48.es", ["/agenda/", "/programacion/", "/"]),
+    # --- Clubs / DJs ---
+    Venue("LAB theClub", "https://www.labtheclub.com", ["/agenda/", "/"]),
+    Venue("Mondo Disko", "https://www.mondodisko.es", ["/agenda/", "/programacion/", "/"]),
+    Venue("Fabrik", "https://www.fabrikmadrid.com", ["/eventos/", "/agenda/", "/"]),
+    Venue("Shôko Madrid", "https://shokomadrid.com", ["/agenda/", "/programacion/", "/"]),
+    Venue("FITZ Club", "https://fitzclubmadrid.com", ["/agenda/", "/programacion/", "/"]),
     # --- Tablaos flamencos ---
     Venue("Corral de la Morería", "https://www.corraldelamoreria.com", ["/programacion/", "/espectaculo/", "/"]),
     Venue("Cardamomo", "https://cardamomo.com", ["/es/programacion/", "/es/", "/"]),
