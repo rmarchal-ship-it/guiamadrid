@@ -394,49 +394,13 @@ def fetch_poster_tmdb_scrape(tmdb_id: int) -> str:
 
 
 def fetch_ratings(movies: list[dict]) -> None:
-    """Fetch user ratings from individual SensaCine movie pages."""
-    missing = [m for m in movies if not m.get("rating") and m.get("sensacine_id")]
-    if not missing:
-        print("  All movies already have ratings.")
-        return
+    """Fetch user ratings from individual SensaCine movie pages.
 
-    print(f"  Fetching ratings for {len(missing)} movies...")
-    found = 0
-    for mv in missing:
-        sid = mv["sensacine_id"]
-        url = f"{SENSACINE_BASE_URL}/_/entities/movie/{sid}"
-        try:
-            data = _fetch_json(url)
-            # Try multiple rating fields
-            rating = None
-            stats = data.get("statistics") or {}
-            if isinstance(stats, dict):
-                for key in ("userRating", "pressRating"):
-                    val = stats.get(key)
-                    if val is not None:
-                        try:
-                            rating = float(val)
-                            break
-                        except (ValueError, TypeError):
-                            pass
-            if rating is None:
-                for key in ("userRating", "pressRating"):
-                    val = data.get(key)
-                    if val is not None:
-                        try:
-                            rating = float(val)
-                            break
-                        except (ValueError, TypeError):
-                            pass
-            if rating and rating > 0:
-                mv["rating"] = rating
-                found += 1
-                print(f"    {mv['title']}: {rating}")
-        except Exception as e:
-            print(f"    {mv['title']}: error ({e})")
-        time.sleep(REQUEST_DELAY)
-
-    print(f"  Found {found}/{len(missing)} ratings.")
+    NOTE: The /_/entities/movie/ endpoint returns 404 for all movies
+    as of March 2026. Ratings are skipped until a working endpoint is found.
+    """
+    print("  Ratings endpoint not available (SensaCine 404). Skipped.")
+    return
 
 
 def fill_missing_posters(movies: list[dict], tmdb_ids: dict[str, int]) -> None:
