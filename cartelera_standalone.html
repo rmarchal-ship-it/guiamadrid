@@ -528,6 +528,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById('peliculas-tab').style.display = name === 'peliculas' ? '' : 'none';
     document.getElementById('cines-tab').style.display = name === 'cines' ? '' : 'none';
     if (name === 'cines') loadCinemas();
+    if (name === 'peliculas') renderMovies();
   });
 });
 
