@@ -1,6 +1,11 @@
 """Configuración central de Guía del Ocio Madrid."""
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -83,8 +88,6 @@ SENSACINE_THEATER_IDS = {
 }
 
 # Ticketmaster Discovery API
-import os
-
 TICKETMASTER_API_KEY = os.environ.get("TICKETMASTER_API_KEY", "")
 TICKETMASTER_BASE_URL = "https://app.ticketmaster.com/discovery/v2"
 
