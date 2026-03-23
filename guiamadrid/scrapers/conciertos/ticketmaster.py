@@ -10,7 +10,7 @@ Requires TICKETMASTER_API_KEY environment variable.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import requests
 
@@ -31,7 +31,7 @@ class TicketmasterScraper:
 
     def scrape(self, target_date: date | None = None) -> ConcertScrapeResult:
         target_date = target_date or date.today()
-        end_date = target_date + timedelta(days=30)
+        end_date = target_date
 
         events: list[ConcertEvent] = []
         venues_seen: set[str] = set()
