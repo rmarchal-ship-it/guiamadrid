@@ -306,52 +306,79 @@
     color: var(--muted); cursor: pointer; font-size: 0.8rem; transition: all 0.2s;
   }
   .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  /* Concert cards */
-  .concerts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.2rem;
-  }
-  .concert-card {
+  /* Concert venue groups */
+  .venue-group {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; overflow: hidden;
-    transition: transform 0.2s, border-color 0.2s;
+    border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem;
   }
-  .concert-card:hover { transform: translateY(-3px); border-color: #9c27b0; }
-  .concert-card .top { display: flex; gap: 1rem; padding: 1rem; }
-  .concert-card .concert-img {
-    width: 100px; height: 100px; border-radius: 8px;
-    object-fit: cover; background: var(--border); flex-shrink: 0;
-  }
-  .concert-card .concert-placeholder {
-    width: 100px; height: 100px; border-radius: 8px;
-    background: linear-gradient(135deg, #2a1a3e, #4a2a6e);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 2rem; flex-shrink: 0;
-  }
-  .concert-card .info { flex: 1; min-width: 0; }
-  .concert-card .title { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.25rem; line-height: 1.3; }
-  .concert-card .artist { font-size: 0.9rem; color: #ce93d8; margin-bottom: 0.2rem; }
-  .concert-card .venue-name { font-size: 0.8rem; color: var(--muted); }
-  .concert-card .concert-meta {
-    display: flex; gap: 0.5rem; flex-wrap: wrap;
-    padding: 0 1rem 0.8rem; font-size: 0.78rem;
-  }
-  .concert-card .concert-meta .tag {
-    background: var(--bg); border: 1px solid var(--border);
-    border-radius: 4px; padding: 0.15rem 0.5rem;
-  }
-  .concert-card .concert-meta .tag.date-tag { border-color: #9c27b0; color: #ce93d8; }
-  .concert-card .concert-meta .tag.price-tag { border-color: #4caf50; color: #81c784; }
-  .concert-card .concert-meta .tag.genre-tag { border-color: #2196f3; color: #64b5f6; }
-  .concert-card .concert-meta .tag.source-tag { color: var(--muted); }
-  .concert-card .ticket-link {
-    display: block; text-align: center; padding: 0.5rem;
-    border-top: 1px solid var(--border);
-    color: #ce93d8; text-decoration: none; font-size: 0.8rem;
+  .venue-header {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 1.2rem; cursor: pointer;
+    border-bottom: 1px solid var(--border);
     transition: background 0.2s;
   }
-  .concert-card .ticket-link:hover { background: rgba(156,39,176,0.15); }
+  .venue-header:hover { background: rgba(156,39,176,0.08); }
+  .venue-header .venue-icon {
+    width: 48px; height: 48px; border-radius: 8px;
+    background: linear-gradient(135deg, #2a1a3e, #4a2a6e);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; flex-shrink: 0;
+  }
+  .venue-header .venue-info { flex: 1; min-width: 0; }
+  .venue-header .venue-title { font-size: 1.1rem; font-weight: 700; color: #ce93d8; }
+  .venue-header .venue-address { font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem; }
+  .venue-header .venue-count {
+    background: var(--accent); color: #fff; border-radius: 12px;
+    padding: 0.2rem 0.7rem; font-size: 0.8rem; font-weight: 600; flex-shrink: 0;
+  }
+  .venue-events { padding: 0; }
+  .venue-event {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.8rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+  .venue-event:last-child { border-bottom: none; }
+  .venue-event:hover { background: rgba(156,39,176,0.05); }
+  .venue-event .event-img {
+    width: 56px; height: 56px; border-radius: 6px;
+    object-fit: cover; background: var(--border); flex-shrink: 0;
+  }
+  .venue-event .event-placeholder {
+    width: 56px; height: 56px; border-radius: 6px;
+    background: linear-gradient(135deg, #2a1a3e, #4a2a6e);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; flex-shrink: 0;
+  }
+  .venue-event .event-info { flex: 1; min-width: 0; }
+  .venue-event .event-title { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
+  .venue-event .event-artist { font-size: 0.82rem; color: #ce93d8; }
+  .venue-event .event-meta {
+    display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.3rem; font-size: 0.75rem;
+  }
+  .venue-event .event-meta .tag {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 0.1rem 0.45rem;
+  }
+  .tag.date-tag { border-color: #9c27b0; color: #ce93d8; }
+  .tag.price-tag { border-color: #4caf50; color: #81c784; }
+  .tag.genre-tag { border-color: #2196f3; color: #64b5f6; }
+  .venue-event .ticket-btn {
+    color: #ce93d8; text-decoration: none; font-size: 0.78rem;
+    border: 1px solid #9c27b0; border-radius: 6px;
+    padding: 0.3rem 0.7rem; flex-shrink: 0; transition: background 0.2s;
+  }
+  .venue-event .ticket-btn:hover { background: rgba(156,39,176,0.2); }
+  /* Date filter pills for concerts */
+  .date-filters { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .date-pill {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; padding: 0.35rem 0.9rem;
+    color: var(--muted); cursor: pointer; font-size: 0.82rem; transition: all 0.2s;
+    text-transform: capitalize;
+  }
+  .date-pill.active { background: #9c27b0; border-color: #9c27b0; color: #fff; }
+  .date-pill:hover { border-color: #9c27b0; color: #ce93d8; }
   @media (max-width: 600px) {
     .movies-grid { grid-template-columns: 1fr; }
     header { padding: 1rem; }
@@ -402,7 +429,7 @@
   </div>
   <div id="conciertos-tab" style="display:none">
     <div class="stats" id="concert-stats"></div>
-    <div class="filter-bar" id="concert-genre-filters"></div>
+    <div class="date-filters" id="concert-date-filters"></div>
     <div id="concerts-container" class="loading">Cargando conciertos...</div>
   </div>
   <div id="cines-tab" style="display:none">
@@ -574,7 +601,6 @@ cinemaFilter.addEventListener('change', () => renderMovies());
 
 // Concert data
 const allConcerts = (typeof EMBEDDED_CONCERTS !== 'undefined') ? EMBEDDED_CONCERTS : [];
-let activeConcertGenre = '';
 
 // Tabs
 document.querySelectorAll('.tab').forEach(tab => {
@@ -587,7 +613,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById('cines-tab').style.display = name === 'cines' ? '' : 'none';
     if (name === 'cines') loadCinemas();
     if (name === 'peliculas') renderMovies();
-    if (name === 'conciertos') { renderConcertStats(); renderConcertGenreFilters(); renderConcerts(); }
+    if (name === 'conciertos') { renderConcertStats(); renderConcertDateFilters(); renderConcerts(); }
   });
 });
 
@@ -813,7 +839,14 @@ document.getElementById('searchInput').addEventListener('input', () => {
   renderStats();
 });
 
-// Concert rendering
+// Concert rendering — grouped by venue
+let activeConcertDate = '';  // '' = all dates
+
+function fmtDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 function renderConcertStats() {
   const venueCount = new Set(allConcerts.map(c => c.venue)).size;
   const dates = new Set(allConcerts.map(c => c.date));
@@ -824,17 +857,18 @@ function renderConcertStats() {
   `;
 }
 
-function renderConcertGenreFilters() {
-  const genres = [...new Set(allConcerts.map(c => c.genre).filter(Boolean))].sort();
-  const bar = document.getElementById('concert-genre-filters');
-  bar.innerHTML = `<div class="filter-btn ${activeConcertGenre === '' ? 'active' : ''}" data-genre="">Todos</div>`;
-  genres.forEach(g => {
-    bar.innerHTML += `<div class="filter-btn ${activeConcertGenre === g ? 'active' : ''}" data-genre="${g}">${g}</div>`;
+function renderConcertDateFilters() {
+  const dates = [...new Set(allConcerts.map(c => c.date))].sort();
+  const bar = document.getElementById('concert-date-filters');
+  let html = `<div class="date-pill ${activeConcertDate === '' ? 'active' : ''}" data-date="">Todos</div>`;
+  dates.forEach(d => {
+    html += `<div class="date-pill ${activeConcertDate === d ? 'active' : ''}" data-date="${d}">${fmtDate(d)}</div>`;
   });
-  bar.querySelectorAll('.filter-btn').forEach(btn => {
+  bar.innerHTML = html;
+  bar.querySelectorAll('.date-pill').forEach(btn => {
     btn.addEventListener('click', () => {
-      activeConcertGenre = btn.dataset.genre;
-      renderConcertGenreFilters();
+      activeConcertDate = btn.dataset.date;
+      renderConcertDateFilters();
       renderConcerts();
     });
   });
@@ -845,7 +879,7 @@ function renderConcerts() {
   const search = getSearchTerm();
 
   let filtered = allConcerts;
-  if (activeConcertGenre) filtered = filtered.filter(c => c.genre === activeConcertGenre);
+  if (activeConcertDate) filtered = filtered.filter(c => c.date === activeConcertDate);
   if (search) {
     filtered = filtered.filter(c =>
       c.event_name.toLowerCase().includes(search)
@@ -861,40 +895,64 @@ function renderConcerts() {
     return;
   }
 
-  container.className = 'concerts-grid';
-  container.innerHTML = filtered.map(c => {
-    const imgHtml = c.image_url
-      ? `<img class="concert-img" src="${c.image_url}" alt="${esc(c.event_name)}" loading="lazy" onerror="this.outerHTML='<div class=concert-placeholder>&#x1f3b5;</div>'">`
-      : '<div class="concert-placeholder">&#x1f3b5;</div>';
+  // Group by venue
+  const byVenue = {};
+  filtered.forEach(c => {
+    const key = c.venue || 'Sala desconocida';
+    if (!byVenue[key]) byVenue[key] = { address: c.venue_address || '', events: [] };
+    byVenue[key].events.push(c);
+  });
 
-    const artistHtml = c.artist && c.artist !== c.event_name
-      ? `<div class="artist">${esc(c.artist)}</div>` : '';
+  // Sort venues by number of events (most first)
+  const venueNames = Object.keys(byVenue).sort((a, b) => byVenue[b].events.length - byVenue[a].events.length);
 
-    const tags = [];
-    if (c.date) {
-      const d = new Date(c.date + 'T00:00:00');
-      const dayStr = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
-      tags.push(`<span class="tag date-tag">${c.time ? c.time + ' · ' : ''}${dayStr}</span>`);
-    }
-    if (c.price_range) tags.push(`<span class="tag price-tag">${esc(c.price_range)}</span>`);
-    if (c.genre) tags.push(`<span class="tag genre-tag">${esc(c.genre)}</span>`);
-    tags.push(`<span class="tag source-tag">${esc(c.source)}</span>`);
+  container.className = '';
+  container.innerHTML = venueNames.map(venueName => {
+    const group = byVenue[venueName];
+    // Sort events within venue by date then time
+    group.events.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
 
-    const ticketHtml = c.ticket_url
-      ? `<a class="ticket-link" href="${c.ticket_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Comprar entradas &rarr;</a>` : '';
+    const eventsHtml = group.events.map(c => {
+      const imgHtml = c.image_url
+        ? `<img class="event-img" src="${c.image_url}" alt="${esc(c.event_name)}" loading="lazy" onerror="this.outerHTML='<div class=event-placeholder>&#x1f3b5;</div>'">`
+        : '<div class="event-placeholder">&#x1f3b5;</div>';
+
+      const artistHtml = c.artist && c.artist !== c.event_name
+        ? `<div class="event-artist">${esc(c.artist)}</div>` : '';
+
+      const tags = [];
+      if (c.date) {
+        tags.push(`<span class="tag date-tag">${c.time ? c.time + ' · ' : ''}${fmtDate(c.date)}</span>`);
+      }
+      if (c.price_range) tags.push(`<span class="tag price-tag">${esc(c.price_range)}</span>`);
+      if (c.genre) tags.push(`<span class="tag genre-tag">${esc(c.genre)}</span>`);
+
+      const ticketHtml = c.ticket_url
+        ? `<a class="ticket-btn" href="${c.ticket_url}" target="_blank" rel="noopener">Entradas</a>` : '';
+
+      return `
+        <div class="venue-event">
+          ${imgHtml}
+          <div class="event-info">
+            <div class="event-title">${esc(c.event_name)}</div>
+            ${artistHtml}
+            <div class="event-meta">${tags.join('')}</div>
+          </div>
+          ${ticketHtml}
+        </div>`;
+    }).join('');
 
     return `
-      <div class="concert-card">
-        <div class="top">
-          ${imgHtml}
-          <div class="info">
-            <div class="title">${esc(c.event_name)}</div>
-            ${artistHtml}
-            <div class="venue-name">${esc(c.venue)}</div>
+      <div class="venue-group">
+        <div class="venue-header">
+          <div class="venue-icon">&#x1f3b6;</div>
+          <div class="venue-info">
+            <div class="venue-title">${esc(venueName)}</div>
+            ${group.address ? `<div class="venue-address">${esc(group.address)}</div>` : ''}
           </div>
+          <div class="venue-count">${group.events.length}</div>
         </div>
-        <div class="concert-meta">${tags.join('')}</div>
-        ${ticketHtml}
+        <div class="venue-events">${eventsHtml}</div>
       </div>`;
   }).join('');
 }

@@ -28,6 +28,7 @@ import cloudscraper
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent
 HTML_FILE = PROJECT_ROOT / "cartelera_standalone.html"
+MOVIE_CACHE_FILE = PROJECT_ROOT / "data" / "movie_cache.json"
 
 # ---------------------------------------------------------------------------
 # Config (inline to avoid import issues in CI)
@@ -802,112 +803,143 @@ def update_html_concerts(concerts: list[dict]) -> None:
     HTML_FILE.write_text(html, encoding="utf-8")
 
 
+def _load_movie_cache(today: date) -> dict | None:
+    """Load cached movie data if it's from today."""
+    if not MOVIE_CACHE_FILE.exists():
+        return None
+    try:
+        cache = json.loads(MOVIE_CACHE_FILE.read_text(encoding="utf-8"))
+        if cache.get("date") == today.strftime("%Y-%m-%d"):
+            print(f"  Using cached movie data ({len(cache['movies'])} movies, {len(cache['showtimes'])} showtimes)")
+            return cache
+    except Exception:
+        pass
+    return None
+
+
+def _save_movie_cache(today: date, movies, showtimes, cinemas, tmdb_ids, trailers) -> None:
+    """Save movie data to cache."""
+    MOVIE_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    cache = {
+        "date": today.strftime("%Y-%m-%d"),
+        "movies": movies,
+        "showtimes": showtimes,
+        "cinemas": cinemas,
+        "tmdb_ids": tmdb_ids,
+        "trailers": trailers,
+    }
+    MOVIE_CACHE_FILE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+
+
+def _scrape_movies_fresh(today: date):
+    """Scrape movies from SensaCine — returns (movies, showtimes, cinemas, tmdb_ids, trailers) or None on failure."""
+    # Quick connectivity test
+    test_id = list(SENSACINE_THEATER_IDS.keys())[0]
+    test_url = SHOWTIMES_URL.format(theater_id=test_id, date=today.strftime("%Y-%m-%d"), page=1)
+    try:
+        resp = _session.get(test_url, timeout=REQUEST_TIMEOUT)
+        ct = resp.headers.get("content-type", "N/A")
+        if resp.status_code != 200 or "json" not in ct.lower():
+            print("  SensaCine not returning JSON. Skipping movie update.")
+            return None
+        resp.json()  # verify parseable
+    except Exception as e:
+        print(f"  SensaCine connection failed: {e}")
+        return None
+
+    print(f"  Scraping {len(SENSACINE_THEATER_IDS)} cinemas...")
+    movies, showtimes, cinemas, errors = scrape_all_cinemas(today)
+    print(f"  Result: {len(movies)} movies, {len(showtimes)} showtimes, {len(cinemas)} cinemas")
+    if errors:
+        print(f"  Errors: {len(errors)}")
+        for e in errors[:10]:
+            print(f"    - {e}")
+
+    if not showtimes:
+        print("  No showtimes scraped. Keeping existing movie data.")
+        return None
+
+    # Ratings
+    print("  Fetching ratings...")
+    fetch_ratings(movies)
+
+    # TMDB IDs
+    existing_tmdb_ids = _load_existing_tmdb_ids()
+    existing_trailers = _load_existing_trailers()
+    current_titles = {m["title"] for m in movies}
+    tmdb_ids: dict[str, int] = {}
+    for title, tid in existing_tmdb_ids.items():
+        if title in current_titles:
+            tmdb_ids[title] = tid
+    for mv in movies:
+        tid = tmdb_ids.get(mv["title"])
+        if tid:
+            mv["tmdb_id"] = tid
+    print(f"  {len(tmdb_ids)} TMDB IDs carried over.")
+
+    # Posters
+    print("  Checking posters...")
+    fill_missing_posters(movies, tmdb_ids)
+
+    # Trailers
+    print("  Finding trailers...")
+    relevant_trailers = {t: v for t, v in existing_trailers.items() if t in current_titles}
+    trailers = find_trailers(movies, relevant_trailers)
+
+    # Save cache
+    _save_movie_cache(today, movies, showtimes, cinemas, tmdb_ids, trailers)
+    return movies, showtimes, cinemas, tmdb_ids, trailers
+
+
 def main() -> int:
     today = date.today()
     print("=" * 65)
     print(f"  Cartelera Madrid — Build Pipeline")
     print(f"  Date: {today.strftime('%Y-%m-%d')}")
-    print(f"  Cinemas: {len(SENSACINE_THEATER_IDS)}")
     print("=" * 65)
 
     if not HTML_FILE.exists():
         print(f"ERROR: HTML file not found: {HTML_FILE}")
         return 1
 
-    # Quick connectivity test
-    print("\nTesting SensaCine connectivity...")
-    test_id = list(SENSACINE_THEATER_IDS.keys())[0]
-    test_url = SHOWTIMES_URL.format(theater_id=test_id, date=today.strftime("%Y-%m-%d"), page=1)
-    try:
-        resp = _session.get(test_url, timeout=REQUEST_TIMEOUT)
-        ct = resp.headers.get("content-type", "N/A")
-        print(f"  Status: {resp.status_code} | Content-Type: {ct}")
-        print(f"  Response body[:500]: {resp.text[:500]}")
-        if resp.status_code != 200 or "json" not in ct.lower():
-            print("\n  SensaCine is NOT returning JSON. Likely blocking or captcha.")
-            print("  The pipeline cannot update data in this environment.")
-            return 1
-        # Verify it actually parses as JSON
-        try:
-            data = resp.json()
-            results = data.get("results", [])
-            print(f"  Test OK: got {len(results)} movies from test cinema")
-        except Exception:
-            print("  Response is not valid JSON despite Content-Type header.")
-            return 1
-    except Exception as e:
-        print(f"  Connection failed: {e}")
-        return 1
+    # --- Movies: use cache if available ---
+    print("\n[1/2] Movies...")
+    cache = _load_movie_cache(today)
+    if cache:
+        movies = cache["movies"]
+        showtimes = cache["showtimes"]
+        cinemas = cache["cinemas"]
+        tmdb_ids = cache.get("tmdb_ids", {})
+        trailers = cache.get("trailers", {})
+    else:
+        result = _scrape_movies_fresh(today)
+        if result:
+            movies, showtimes, cinemas, tmdb_ids, trailers = result
+        else:
+            movies = None
 
-    # Load existing data from HTML (for merging)
-    existing_tmdb_ids = _load_existing_tmdb_ids()
-    existing_trailers = _load_existing_trailers()
-
-    # --- Step 1: Scrape ---
-    print(f"\n[1/4] Scraping SensaCine for {today}...")
-    movies, showtimes, cinemas, errors = scrape_all_cinemas(today)
-    print(f"\n  Result: {len(movies)} movies, {len(showtimes)} showtimes, {len(cinemas)} cinemas")
-    if errors:
-        print(f"  Errors: {len(errors)}")
-        for e in errors[:10]:
-            print(f"    - {e}")
-        if len(errors) > 10:
-            print(f"    ... and {len(errors) - 10} more")
-
-    if not showtimes:
-        print("\nERROR: No showtimes scraped. Aborting to preserve existing data.")
-        # Write debug info
-        debug = {"movies": len(movies), "showtimes": len(showtimes), "cinemas": len(cinemas), "errors": errors[:20]}
-        (PROJECT_ROOT / "sensacine_test.json").write_text(json.dumps(debug, indent=2, ensure_ascii=False), encoding="utf-8")
-        return 1
-
-    # --- Step 2: Fetch ratings ---
-    print("\n[2/5] Fetching ratings from SensaCine...")
-    fetch_ratings(movies)
-
-    # --- Step 3: Merge TMDB IDs ---
-    print("\n[3/5] Merging TMDB IDs...")
-    # Keep existing TMDB IDs for movies that are still showing
-    current_titles = {m["title"] for m in movies}
-    tmdb_ids: dict[str, int] = {}
-    for title, tid in existing_tmdb_ids.items():
-        if title in current_titles:
-            tmdb_ids[title] = tid
-    # Set tmdb_id field on movie objects
-    for mv in movies:
-        tid = tmdb_ids.get(mv["title"])
-        if tid:
-            mv["tmdb_id"] = tid
-    print(f"  {len(tmdb_ids)} TMDB IDs carried over for current movies.")
-
-    # --- Step 4: Fill missing posters ---
-    print("\n[4/5] Checking posters...")
-    fill_missing_posters(movies, tmdb_ids)
-
-    # --- Step 5: Find trailers ---
-    print("\n[5/5] Finding YouTube trailers...")
-    # Only keep existing trailers for movies still showing
-    relevant_trailers = {t: v for t, v in existing_trailers.items() if t in current_titles}
-    trailers = find_trailers(movies, relevant_trailers)
-
-    # --- Step 6: Scrape concerts ---
-    print("\n[6/6] Scraping concerts...")
+    # --- Concerts: always scrape fresh ---
+    print("\n[2/2] Concerts...")
     concerts = scrape_concerts(today)
     print(f"  Total: {len(concerts)} concerts")
 
     # --- Write HTML ---
     print("\nWriting updated HTML...")
-    update_html(movies, showtimes, cinemas, tmdb_ids, trailers)
+    if movies:
+        update_html(movies, showtimes, cinemas, tmdb_ids, trailers)
     if concerts:
         update_html_concerts(concerts)
 
     print(f"\nDone! Updated {HTML_FILE.name}")
-    print(f"  Movies: {len(movies)}")
-    print(f"  Showtimes: {len(showtimes)}")
-    print(f"  Cinemas: {len(cinemas)}")
+    if movies:
+        print(f"  Movies: {len(movies)}")
+        print(f"  Showtimes: {len(showtimes)}")
+        print(f"  Cinemas: {len(cinemas)}")
+        print(f"  Trailers: {len(trailers)}")
+        print(f"  TMDB IDs: {len(tmdb_ids)}")
+    else:
+        print("  Movies: (kept existing)")
     print(f"  Concerts: {len(concerts)}")
-    print(f"  Trailers: {len(trailers)}")
-    print(f"  TMDB IDs: {len(tmdb_ids)}")
     return 0
 
 
