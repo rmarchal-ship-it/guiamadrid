@@ -28,8 +28,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt cloudscraper
 
-      - name: Scrape to database
+      - name: Scrape cinema to database
         run: python -m guiamadrid scrape
+
+      - name: Scrape concerts to database
+        env:
+          TICKETMASTER_API_KEY: ${{ secrets.TICKETMASTER_API_KEY }}
+        run: python -m guiamadrid scrape-concerts
 
       - name: Show stats
         run: python -m guiamadrid stats

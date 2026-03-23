@@ -707,6 +707,97 @@ def update_html(
 # Main
 # ═══════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 5: Scrape concerts
+# ═══════════════════════════════════════════════════════════════════════════
+
+def scrape_concerts(target_date: date) -> list[dict]:
+    """Scrape concerts from all available sources."""
+    from guiamadrid.scrapers.base import ConcertScrapeResult
+
+    all_events: list[dict] = []
+    seen_keys: set[str] = set()
+
+    def add_events(result: ConcertScrapeResult):
+        for ev in result.events:
+            key = f"{ev.event_name}_{ev.date}_{ev.venue_name}"
+            if key not in seen_keys:
+                seen_keys.add(key)
+                all_events.append({
+                    "event_name": ev.event_name,
+                    "artist": ev.artist,
+                    "venue": ev.venue_name,
+                    "venue_address": ev.venue_address,
+                    "date": ev.date,
+                    "time": ev.time,
+                    "genre": ev.genre,
+                    "price_range": ev.price_range,
+                    "ticket_url": ev.ticket_url,
+                    "image_url": ev.image_url,
+                    "source": ev.source,
+                })
+
+    # Ticketmaster
+    try:
+        from guiamadrid.scrapers.conciertos.ticketmaster import TicketmasterScraper
+        print("  Ticketmaster...", end=" ", flush=True)
+        with TicketmasterScraper() as s:
+            result = s.scrape(target_date)
+        add_events(result)
+        print(f"{len(result.events)} events")
+    except Exception as e:
+        print(f"skipped ({e})")
+
+    # datos.madrid.es
+    try:
+        from guiamadrid.scrapers.conciertos.datos_madrid import DatosMadridScraper
+        print("  datos.madrid.es...", end=" ", flush=True)
+        with DatosMadridScraper() as s:
+            result = s.scrape(target_date)
+        add_events(result)
+        print(f"{len(result.events)} events")
+    except Exception as e:
+        print(f"error ({e})")
+
+    # DICE.fm
+    try:
+        from guiamadrid.scrapers.conciertos.dice import DiceScraper
+        print("  DICE.fm...", end=" ", flush=True)
+        with DiceScraper() as s:
+            result = s.scrape(target_date)
+        add_events(result)
+        print(f"{len(result.events)} events")
+    except Exception as e:
+        print(f"error ({e})")
+
+    # Sort by date, then time
+    all_events.sort(key=lambda e: (e["date"], e["time"]))
+    return all_events
+
+
+def update_html_concerts(concerts: list[dict]) -> None:
+    """Insert or update the EMBEDDED_CONCERTS constant in the HTML file."""
+    html = HTML_FILE.read_text(encoding="utf-8")
+
+    concerts_json = json.dumps(concerts, ensure_ascii=False, separators=(", ", ": "))
+
+    # Try to replace existing
+    if "EMBEDDED_CONCERTS" in html:
+        html = re.sub(
+            r"const EMBEDDED_CONCERTS\s*=\s*\[.*?\];\s*\n",
+            f"const EMBEDDED_CONCERTS = {concerts_json};\n",
+            html,
+        )
+    else:
+        # Insert after EMBEDDED_CINEMAS
+        html = html.replace(
+            "const EMBEDDED_CINEMAS",
+            f"const EMBEDDED_CONCERTS = {concerts_json};\nconst EMBEDDED_CINEMAS",
+        )
+
+    HTML_FILE.write_text(html, encoding="utf-8")
+
+
 def main() -> int:
     today = date.today()
     print("=" * 65)
@@ -795,14 +886,22 @@ def main() -> int:
     relevant_trailers = {t: v for t, v in existing_trailers.items() if t in current_titles}
     trailers = find_trailers(movies, relevant_trailers)
 
+    # --- Step 6: Scrape concerts ---
+    print("\n[6/6] Scraping concerts...")
+    concerts = scrape_concerts(today)
+    print(f"  Total: {len(concerts)} concerts")
+
     # --- Write HTML ---
     print("\nWriting updated HTML...")
     update_html(movies, showtimes, cinemas, tmdb_ids, trailers)
+    if concerts:
+        update_html_concerts(concerts)
 
     print(f"\nDone! Updated {HTML_FILE.name}")
     print(f"  Movies: {len(movies)}")
     print(f"  Showtimes: {len(showtimes)}")
     print(f"  Cinemas: {len(cinemas)}")
+    print(f"  Concerts: {len(concerts)}")
     print(f"  Trailers: {len(trailers)}")
     print(f"  TMDB IDs: {len(tmdb_ids)}")
     return 0
