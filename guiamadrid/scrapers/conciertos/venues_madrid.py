@@ -32,28 +32,33 @@ class Venue(NamedTuple):
 
 
 VENUES: list[Venue] = [
+    # --- Common ownership group (Café Berlín, Clamores, Villanos, Tempo) ---
+    # WordPress sites with similar structure
     Venue("Café Berlín", "https://berlincafe.es", ["/programas/", "/programa/"]),
-    Venue("Sala Rockville", "https://www.rockville.es", ["/", "/agenda/", "/programacion/"]),
-    Venue("Sala La Riviera", "https://salariviera.com", ["/conciertossalariviera/", "/"]),
-    Venue("Siroco", "https://www.siroco.es", ["/", "/agenda/", "/programacion/"]),
-    Venue("Sala Clamores", "https://www.salaclamores.es", ["/", "/agenda/", "/programacion/"]),
-    Venue("Sala Honky Tonk", "https://www.clubhonky.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Galileo Galilei", "https://www.salagalileogalilei.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Sala Villanos", "https://salavillanos.es", ["/", "/agenda/", "/programacion/"]),
-    Venue("ContraClub", "https://www.contraclub.es", ["/", "/agenda/", "/programacion/"]),
-    Venue("Sala La Caverna", "https://www.salalacaverna.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Sala Vesta", "https://www.salavesta.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Madreams Music", "https://madreamsmusic.es", ["/", "/agenda/"]),
-    Venue("El Sótano", "https://www.salaelsotano.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Intruso Bar", "https://www.intrusobar.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Café Central", "https://www.cafecentralmadrid.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Recoletos Jazz", "https://www.recoletosjazz.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("The Jungle Jazz Club", "https://www.thejunglejazzclub.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Café El Despertar", "https://www.cafeeldespertar.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Babylon Club", "https://www.babylonmadrid.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Blackbird", "https://www.blackbirdrockbar.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("La Fontana de Oro", "https://www.fontanadeoro.com", ["/", "/agenda/", "/programacion/"]),
-    Venue("Tempo Club", "https://www.tempoclub.es", ["/", "/agenda/", "/programacion/"]),
+    Venue("Sala Clamores", "https://www.salaclamores.es", ["/calendario", "/agenda/", "/"]),
+    Venue("Sala Villanos", "https://salavillanos.es", ["/agenda/", "/"]),
+    Venue("Tempo Club", "https://tempoclub.es", ["/conciertos/", "/en/concerts/", "/"]),
+    # --- Major venues ---
+    Venue("Sala La Riviera", "https://salariviera.com", ["/events/", "/conciertossalariviera/", "/"]),
+    Venue("Siroco", "https://siroco.es", ["/agenda/", "/conciertos/", "/"]),
+    Venue("Galileo Galilei", "https://salagalileo.es", ["/programacion/", "/"]),
+    Venue("Sala Rockville", "https://rockville.es", ["/programacion/", "/"]),
+    # --- Jazz / intimate venues ---
+    Venue("Café Central", "https://cafecentralmadrid.com", ["/programacion/", "/"]),
+    Venue("Recoletos Jazz", "https://www.recoletosjazz.com", ["/Tickets-Shows/", "/"]),
+    Venue("The Jungle Jazz Club", "https://www.thejunglejazzclub.com", ["/agenda/", "/programacion/", "/"]),
+    Venue("Café El Despertar", "https://www.cafeeldespertar.com", ["/agenda/", "/programacion/", "/"]),
+    Venue("Babylon Club", "https://www.babylonmadrid.com", ["/agenda", "/"]),
+    # --- Smaller venues ---
+    Venue("Sala Honky Tonk", "https://www.clubhonky.com", ["/agenda/", "/programacion/", "/"]),
+    Venue("ContraClub", "https://www.contraclub.es", ["/agenda/", "/programacion/", "/"]),
+    Venue("Sala La Caverna", "https://www.salalacaverna.com", ["/agenda/", "/"]),
+    Venue("Sala Vesta", "https://www.salavesta.com", ["/agenda/", "/programacion/", "/"]),
+    Venue("Madreams Music", "https://madreamsmusic.es", ["/agenda/", "/"]),
+    Venue("El Sótano", "https://www.salaelsotano.com", ["/agenda/", "/programacion/", "/"]),
+    Venue("Intruso Bar", "https://www.intrusobar.com", ["/agenda/", "/programacion/", "/"]),
+    Venue("Blackbird", "https://www.blackbirdrockbar.com", ["/agenda/", "/programacion/", "/"]),
+    Venue("La Fontana de Oro", "https://www.fontanadeoro.com", ["/agenda/", "/programacion/", "/"]),
 ]
 
 # Venues with only Instagram/Facebook (not scrapable via web)
