@@ -738,6 +738,19 @@ def scrape_concerts(target_date: date) -> list[dict]:
     except Exception as e:
         print(f"error ({e})")
 
+    # Madrid venue websites (Café Berlín, La Riviera, Clamores, etc.)
+    try:
+        from guiamadrid.scrapers.conciertos.venues_madrid import VenuesMadridScraper
+        print("  Salas de Madrid...", end=" ", flush=True)
+        with VenuesMadridScraper() as s:
+            result = s.scrape(target_date)
+        add_events(result)
+        print(f"{len(result.events)} events from {result.venues_count} venues")
+        if result.errors:
+            print(f"    ({len(result.errors)} venues with errors)")
+    except Exception as e:
+        print(f"error ({e})")
+
     # Sort by date, then time
     all_events.sort(key=lambda e: (e["date"], e["time"]))
     return all_events
