@@ -840,7 +840,11 @@ document.getElementById('searchInput').addEventListener('input', () => {
 });
 
 // Concert rendering — grouped by venue
-let activeConcertDate = '';  // '' = all dates
+// Filter out past dates and default to next 7 days
+const today = new Date().toISOString().slice(0, 10);
+const weekFromNow = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+const futureConcerts = allConcerts.filter(c => c.date >= today);
+let activeConcertDate = '7d';  // '7d' = next 7 days, '' = all future dates
 
 function fmtDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -848,19 +852,20 @@ function fmtDate(dateStr) {
 }
 
 function renderConcertStats() {
-  const venueCount = new Set(allConcerts.map(c => c.venue)).size;
-  const dates = new Set(allConcerts.map(c => c.date));
+  const venueCount = new Set(futureConcerts.map(c => c.venue)).size;
+  const dates = new Set(futureConcerts.map(c => c.date));
   document.getElementById('concert-stats').innerHTML = `
-    <div class="stat-box"><div class="num">${allConcerts.length}</div><div class="label">Conciertos</div></div>
+    <div class="stat-box"><div class="num">${futureConcerts.length}</div><div class="label">Conciertos</div></div>
     <div class="stat-box"><div class="num">${venueCount}</div><div class="label">Salas</div></div>
     <div class="stat-box"><div class="num">${dates.size}</div><div class="label">Fechas</div></div>
   `;
 }
 
 function renderConcertDateFilters() {
-  const dates = [...new Set(allConcerts.map(c => c.date))].sort();
+  const dates = [...new Set(futureConcerts.map(c => c.date))].sort();
   const bar = document.getElementById('concert-date-filters');
-  let html = `<div class="date-pill ${activeConcertDate === '' ? 'active' : ''}" data-date="">Todos</div>`;
+  let html = `<div class="date-pill ${activeConcertDate === '7d' ? 'active' : ''}" data-date="7d">7 días</div>`;
+  html += `<div class="date-pill ${activeConcertDate === '' ? 'active' : ''}" data-date="">Todos</div>`;
   dates.forEach(d => {
     html += `<div class="date-pill ${activeConcertDate === d ? 'active' : ''}" data-date="${d}">${fmtDate(d)}</div>`;
   });
@@ -878,8 +883,9 @@ function renderConcerts() {
   const container = document.getElementById('concerts-container');
   const search = getSearchTerm();
 
-  let filtered = allConcerts;
-  if (activeConcertDate) filtered = filtered.filter(c => c.date === activeConcertDate);
+  let filtered = futureConcerts;
+  if (activeConcertDate === '7d') filtered = filtered.filter(c => c.date <= weekFromNow);
+  else if (activeConcertDate) filtered = filtered.filter(c => c.date === activeConcertDate);
   if (search) {
     filtered = filtered.filter(c =>
       c.event_name.toLowerCase().includes(search)
