@@ -3,8 +3,8 @@
 Scrapes concert listings from Songkick's Madrid metro area page.
 No API key required — uses the public HTML listings with JSON-LD microdata.
 
-Songkick metro ID for Madrid: 28714-es-madrid
-URL: https://www.songkick.com/metro-areas/28714-es-madrid/calendar
+Songkick metro ID for Madrid: 28755-spain-madrid
+URL: https://www.songkick.com/metro-areas/28755-spain-madrid/calendar
 """
 
 from __future__ import annotations
@@ -63,17 +63,8 @@ class SongkickScraper:
                 errors.append(f"Page {page}: {exc}")
                 break
 
-        # Deduplicate by (event_name, date, venue)
-        seen: set[tuple] = set()
-        unique: list[ConcertEvent] = []
-        for e in events:
-            key = (e.event_name.lower(), e.date, e.venue_name.lower())
-            if key not in seen:
-                seen.add(key)
-                unique.append(e)
-
         return ConcertScrapeResult(
-            events=unique,
+            events=self._dedupe(events),
             venues_count=len(venues_seen),
             errors=errors,
         )
@@ -105,7 +96,6 @@ class SongkickScraper:
         return events, has_next
 
     def _parse_li(self, li, target_date: date) -> ConcertEvent | None:
-        # --- Date/time from <time datetime="..."> ---
         time_tag = li.select_one("time[datetime]")
         event_date = ""
         event_time = ""
@@ -120,7 +110,6 @@ class SongkickScraper:
         if event_date and event_date < target_date.isoformat():
             return None
 
-        # --- Rich data from JSON-LD ---
         ld_tag = li.select_one("script[type='application/ld+json']")
         ld = None
         if ld_tag:
@@ -133,33 +122,25 @@ class SongkickScraper:
         if ld:
             event_name = ld.get("name", "")
             image_url = ld.get("image", "")
-            ticket_url = ld.get("url", "").split("?")[0]  # strip utm params
+            ticket_url = ld.get("url", "").split("?")[0]
             location = ld.get("location", {})
             venue = location.get("name", "")
-            address_obj = location.get("address", {})
-            city = address_obj.get("addressLocality", "")
-            country = address_obj.get("addressCountry", "")
-            # Filter: only Madrid events
+            city = location.get("address", {}).get("addressLocality", "")
             if city and city.lower() not in ("madrid",):
                 return None
         else:
-            # Fallback: parse HTML
             artist_tag = li.select_one("p.artists a strong") or li.select_one("p.artists a")
             if not artist_tag:
                 return None
             event_name = artist_tag.get_text(strip=True)
-
             venue_tag = li.select_one("p.location a.venue-link")
             venue = venue_tag.get_text(strip=True) if venue_tag else ""
-
             city_tag = li.select_one("p.location .city-name")
             city = city_tag.get_text(strip=True) if city_tag else ""
             if city and "madrid" not in city.lower():
                 return None
-
             link_tag = li.select_one("a.event-link[href*='/concerts/']")
             ticket_url = (BASE_URL + link_tag["href"]) if link_tag else ""
-
             img_tag = li.select_one("img.artist-profile-image")
             image_url = ""
             if img_tag:
@@ -167,11 +148,8 @@ class SongkickScraper:
                 if "default" not in src:
                     image_url = "https:" + src if src.startswith("//") else src
 
-        # Artist name from artists paragraph
         artist_tag = li.select_one("p.artists a strong")
         artist = artist_tag.get_text(strip=True) if artist_tag else event_name
-
-        # Upgrade image from JSON-LD to larger size
         if image_url and image_url.startswith("//"):
             image_url = "https:" + image_url
         image_url = re.sub(r"/large_avatar$", "/huge_avatar", image_url)
@@ -186,3 +164,13 @@ class SongkickScraper:
             image_url=image_url,
             source="songkick",
         )
+
+    def _dedupe(self, events: list[ConcertEvent]) -> list[ConcertEvent]:
+        seen: set[tuple] = set()
+        unique: list[ConcertEvent] = []
+        for e in events:
+            key = (e.event_name.lower(), e.date, e.venue_name.lower())
+            if key not in seen:
+                seen.add(key)
+                unique.append(e)
+        return unique
