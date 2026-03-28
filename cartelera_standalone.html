@@ -346,7 +346,12 @@
   .loading { text-align: center; padding: 3rem; color: var(--muted); font-size: 1rem; }
   .empty { text-align: center; padding: 3rem; color: var(--muted); }
   /* === FILTERS === */
-  .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+  .filter-bar select {
+    background: #111; color: var(--text);
+    border: 1px solid #333; border-radius: var(--radius-sm);
+    padding: 0.45rem 0.7rem; font-size: 0.85rem; font-family: inherit;
+  }
   .filter-btn {
     background: #111; border: 1px solid #333;
     border-radius: var(--radius-pill); padding: 0.4rem 1rem;
@@ -364,6 +369,7 @@
     background: #111; color: var(--text);
     border: 1px solid #333; border-radius: var(--radius-sm);
     padding: 0.45rem 0.7rem; font-size: 0.85rem; font-family: inherit;
+    max-width: 250px; flex-shrink: 0;
   }
   .date-filters { display: flex; gap: 0.4rem; flex-wrap: nowrap; flex: 1; overflow-x: auto; padding-bottom: 0.3rem; -webkit-overflow-scrolling: touch; }
   .date-filters::-webkit-scrollbar { height: 0; }
@@ -494,9 +500,6 @@
   <div class="controls">
     <label>Fecha:</label>
     <input type="date" id="datePicker" value="2026-03-28">
-    <select id="cinemaFilter">
-      <option value="">Todos los cines</option>
-    </select>
   </div>
 </header>
 
@@ -509,8 +512,8 @@
 
 <div class="tabs">
   <div class="tab active" data-tab="peliculas">Películas <span class="tab-count" id="tab-count-movies"></span></div>
-  <div class="tab" data-tab="conciertos">Conciertos <span class="tab-count" id="tab-count-concerts"></span></div>
   <div class="tab" data-tab="cines">Cines <span class="tab-count" id="tab-count-cinemas"></span></div>
+  <div class="tab" data-tab="conciertos">Conciertos <span class="tab-count" id="tab-count-concerts"></span></div>
 </div>
 
 <div class="trailer-modal" id="trailerModal" onclick="closeTrailer(event)">
@@ -523,7 +526,11 @@
 <div class="content">
   <div id="peliculas-tab">
     <div class="stats" id="stats"></div>
-    <div class="filter-bar" id="lang-filters"></div>
+    <div class="filter-bar" id="lang-filters">
+      <select id="cinemaFilter" style="margin-left:auto">
+        <option value="">Todos los cines</option>
+      </select>
+    </div>
     <div id="movies-container" class="loading">Cargando cartelera...</div>
   </div>
   <div id="conciertos-tab" style="display:none">
@@ -988,9 +995,13 @@ function renderConcerts() {
   filtered.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time) || a.event_name.localeCompare(b.event_name));
   container.className = 'concerts-grid';
   container.innerHTML = filtered.map(c => {
+    const initial = (c.event_name || '?')[0].toUpperCase();
+    const hue = (c.event_name || '').split('').reduce((a,ch) => a + ch.charCodeAt(0), 0) % 360;
+    const bgStyle = `background:linear-gradient(135deg,hsl(${hue},60%,15%),hsl(${(hue+60)%360},50%,8%))`;
+    const placeholderHtml = `<div class="img-placeholder" style="${bgStyle}"><span style="font-size:4rem;font-weight:900;opacity:0.2">${initial}</span></div>`;
     const imgHtml = c.image_url
-      ? `<img src="${c.image_url}" alt="${esc(c.event_name)}" loading="lazy" onerror="this.outerHTML='<div class=img-placeholder>\u{1F3B5}</div>'">`
-      : '<div class="img-placeholder">\u{1F3B5}</div>';
+      ? `${placeholderHtml}<img src="${c.image_url}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`
+      : placeholderHtml;
 
     const dateBadge = c.date ? `<div class="date-badge">${fmtDate(c.date)}${c.time ? ' · ' + c.time : ''}</div>` : '';
 
